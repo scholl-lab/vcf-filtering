@@ -85,6 +85,9 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
+# Replace commas in gene_name with spaces
+gene_name=$(echo "$gene_name" | tr ',' ' ')
+
 # Validate add_chr parameter
 if [[ "$add_chr" != "true" && "$add_chr" != "false" ]]; then
     echo "Error: add_chr must be either 'true' or 'false'."
@@ -114,12 +117,10 @@ if [ -z "$GT_field_number" ]; then
 fi
 
 # Construct the command pipeline
-cmd="snpEff genes2bed \"$reference\" \"$gene_name\" | sortBed"
+cmd="snpEff genes2bed $reference $gene_name | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
-echo "$cmd"
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | \"$replace_script_location\" \"$sample_file\" $GT_field_number > \"$output_file\""
-echo "$cmd"
+cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $sample_file $GT_field_number > $output_file"
 # Execute the command pipeline
 eval $cmd
