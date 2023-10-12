@@ -68,6 +68,17 @@ if [ "$1" == "--config" ]; then
     shift 2
 fi
 
+# Assign variables with default values
+gene_name="$1"
+vcf_file_location="$2"
+reference="${3:-${reference:-"GRCh38.mane.1.0.refseq"}}"
+add_chr="${4:-${add_chr:-true}}"
+filters="${5:-${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}}"
+fields_to_extract="${6:-${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
+sample_file="${7:-${sample_file:-"samples.txt"}}"
+replace_script_location="${8:-${replace_script_location:-"./replace_gt_with_sample.sh"}}"
+output_file="${9:-${output_file:-"variants.tsv"}}"
+
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
     print_usage
@@ -75,7 +86,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 # Validate add_chr parameter
-if [[ "$4" != "true" && "$4" != "false" ]]; then
+if [[ "$add_chr" != "true" && "$add_chr" != "false" ]]; then
     echo "Error: add_chr must be either 'true' or 'false'."
     exit 1
 fi
@@ -87,17 +98,6 @@ for file in "$2" "${7:-$sample_file}" "${8:-$replace_script_location}"; do
         exit 1
     fi
 done
-
-# Assign variables with default values
-gene_name="$1"
-vcf_file_location="$2"
-reference="${3:-${reference:-"GRCh38.mane.1.0.refseq"}}"
-add_chr="${4:-${add_chr:-true}}"
-filters="${5:-${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}}"
-fields_to_extract="${6:-${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
-sample_file="${7:-${sample_file:-"samples.txt"}}"
-replace_script_location="${8:-${replace_script_location:-"./replace_gt_with_sample.sh"}}"
-output_file="${9:-${output_file:-"variants.tsv"}}"
 
 # Informative echo statements
 echo "Starting the filtering process for gene: $gene_name"
@@ -118,7 +118,8 @@ cmd="snpEff genes2bed \"$reference\" \"$gene_name\" | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - \"$fields_to_extract\" | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | \"$replace_script_location\" \"$sample_file\" $GT_field_number > \"$output_file\""
-
+echo "$cmd"
+cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | \"$replace_script_location\" \"$sample_file\" $GT_field_number > \"$output_file\""
+echo "$cmd"
 # Execute the command pipeline
 eval $cmd
