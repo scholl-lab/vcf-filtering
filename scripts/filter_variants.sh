@@ -7,7 +7,7 @@
 #    ./filter_variants.sh [--config config_file] <gene_name> <vcf_file_location> [reference] [add_chr] [filters] [fields_to_extract] [sample_file] [replace_script_location] [output_file]
 # Parameters:
 #    --config config_file: (Optional) The path to the configuration file containing default values for parameters.
-#    gene_name: The name of the gene of interest, e.g., "BICC1".
+#    gene_name: The name of the gene of interest, e.g., "BICC1". Can be a comma-separated list of genes, e.g., "PKD1,PKD2".
 #    vcf_file_location: The location of the VCF file.
 #    reference: (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
 #    add_chr: (Optional, default: true) Whether or not to add "chr" to the chromosome name. Use "true" or "false".
@@ -29,7 +29,7 @@ This script filters VCF files to identify rare genetic variants in genes of inte
 
 Parameters:
     --config config_file: (Optional) The path to the configuration file containing default values for parameters.
-    gene_name: The name of the gene of interest, e.g., "BICC1".
+    gene_name: The name of the gene of interest, e.g., "BICC1". Can be a comma-separated list of genes, e.g., "PKD1,PKD2".
     vcf_file_location: The location of the VCF file.
     reference: (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
     add_chr: (Optional, default: true) Whether or not to add "chr" to the chromosome name. Use "true" or "false".
