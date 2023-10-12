@@ -47,6 +47,7 @@ GEN[*].GT \
 - `fields_to_extract`: (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
 - `sample_file`: (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
 - `replace_script_location`: (Optional, default: "./replace_gt_with_sample.sh") The location of the `replace_gt_with_sample.sh` script.
+- `replace_script_options`: (Optional) Additional options to pass to the `replace_gt_with_sample.sh` script. This can be used to append genotype values to sample names for non-"0/0" genotypes.
 - `output_file`: (Optional, default: "variants.tsv") The name of the output file.
 
 ## Configuration File
@@ -61,6 +62,7 @@ filters=(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )
 fields_to_extract=CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT
 sample_file=samples.txt
 replace_script_location=./replace_gt_with_sample.sh
+replace_script_options="--append-genotype"
 output_file=variants.tsv
 ```
 
@@ -91,8 +93,8 @@ The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to re
 
 ## Requirements
 
-- Bash
-- AWK
-- bcftools
-- snpEff
-- SnpSift
+- GNU Awk 4.2.1, API: 2.0 (GNU MPFR 3.1.6-p2, GNU MP 6.1.2)
+- GNU bash, version 4.4.20(1)-release (x86_64-redhat-linux-gnu)
+- bcftools 1.17
+- snpEff version SnpEff 5.1d (build 2022-04-19 15:49)
+- SnpSift version 5.1d (build 2022-04-19 15:50)
