@@ -16,6 +16,20 @@ The `filter_variants.sh` script performs the following steps:
 8. **Replace GT Values**: Uses `replace_gt_with_sample.sh` to replace the GT values with the sample names.
 9. **Save Output**: Saves the output to a specified file.
 
+Example of the shell pipeline the script is composing:
+```sh
+snpEff genes2bed GRCh38.mane.1.0.refseq OFD1 | sortBed | awk '{print "chr"$0}' | bcftools view ann.dbnsfp.vcf.gz -R - \
+| SnpSift -Xmx8g filter \
+" (( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & \
+((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE')) " \
+| SnpSift -Xmx4g extractFields -s "," -e "NA" - \
+CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P \
+dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC \
+GEN[*].GT \
+| sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' \
+| ./replace_gt_with_sample.sh samples.txt 21 > OFD1_rare_variants.GCKD.tsv
+```
+
 ## Usage of filter_variants.sh
 
 ```sh
