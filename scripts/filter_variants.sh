@@ -15,6 +15,7 @@
 #    fields_to_extract: (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
 #    sample_file: (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
 #    replace_script_location: (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
+#    replace_script_options: (Optional) Additional options to pass to the replace_gt_with_sample.sh script.
 #    output_file: (Optional, default: "variants.tsv") The name of the output file.
 
 # Usage information
@@ -37,6 +38,7 @@ Parameters:
     fields_to_extract: (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
     sample_file: (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
     replace_script_location: (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
+    replace_script_options: (Optional) Additional options to pass to the replace_gt_with_sample.sh script.
     output_file: (Optional, default: "variants.tsv") The name of the output file.
 
 Example:
@@ -68,6 +70,8 @@ if [ "$1" == "--config" ]; then
     shift 2
 fi
 
+echo $replace_script_options
+
 # Assign variables with default values
 gene_name="$1"
 vcf_file_location="$2"
@@ -77,7 +81,10 @@ filters="${5:-${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gno
 fields_to_extract="${6:-${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
 sample_file="${7:-${sample_file:-"samples.txt"}}"
 replace_script_location="${8:-${replace_script_location:-"./replace_gt_with_sample.sh"}}"
-output_file="${9:-${output_file:-"variants.tsv"}}"
+replace_script_options="${9:-""}"
+output_file="${10:-${output_file:-"variants.tsv"}}"
+
+echo $replace_script_options
 
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
@@ -121,6 +128,6 @@ cmd="snpEff genes2bed $reference $gene_name | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $sample_file $GT_field_number > $output_file"
+cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $replace_script_options $sample_file $GT_field_number > $output_file"
 # Execute the command pipeline
 eval $cmd
