@@ -62,13 +62,14 @@ for arg in "$@"; do
     "--fields_to_extract") set -- "$@" "-e" ;;
     "--sample_file") set -- "$@" "-s" ;;
     "--replace_script_location") set -- "$@" "-l" ;;
+    "--use_replacement") set -- "$@" "-R" ;;
     "--output_file") set -- "$@" "-o" ;;
     *) set -- "$@" "$arg"
   esac
 done
 
 # Parse command line arguments using getopts
-while getopts ":c:g:G:v:r:a:f:e:s:l:o:h" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:h" opt; do
     case $opt in
         c)
             config_file="$OPTARG"
@@ -99,6 +100,9 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:o:h" opt; do
             ;;
         l)
             replace_script_location="$OPTARG"
+            ;;
+        R)
+            use_replacement="$OPTARG"
             ;;
         o)
             output_file="$OPTARG"
@@ -142,6 +146,8 @@ filters="${filters:-${5:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gno
 fields_to_extract="${fields_to_extract:-${6:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
 sample_file="${sample_file:-${7:-"samples.txt"}}"
 replace_script_location="${replace_script_location:-${8:-"./replace_gt_with_sample.sh"}}"
+# By default, use the replacement script
+use_replacement="${use_replacement:-true}"
 
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
@@ -172,7 +178,7 @@ if [[ "$add_chr" != "true" && "$add_chr" != "false" ]]; then
 fi
 
 # Validate file existence
-for file in "$2" "${7:-$sample_file}" "${8:-$replace_script_location}"; do
+for file in "$vcf_file_location" "$sample_file" "$replace_script_location"; do
     if [ ! -f "$file" ]; then
         echo "Error: File $file not found."
         exit 1
@@ -205,7 +211,13 @@ if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
 
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $replace_script_options $sample_file $GT_field_number $cmd_end"
+cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g'"
+
+if [ "$use_replacement" == "true" ]; then
+    cmd="$cmd | $replace_script_location $replace_script_options $sample_file $GT_field_number"
+fi
+
+cmd="$cmd $cmd_end"
 
 # Execute the command pipeline
 eval $cmd
