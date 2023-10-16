@@ -266,7 +266,7 @@ fi
 cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g'"
 
 if [ "$use_replacement" == "true" ]; then
-    cmd="$cmd | $replace_script_location $replace_script_options $sample_file $GT_field_number"
+    cmd="$cmd | $replace_script_location $replace_script_options -s $sample_file -g $GT_field_number"
 fi
 
 cmd="$cmd $cmd_end"
