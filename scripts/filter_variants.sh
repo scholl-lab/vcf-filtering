@@ -70,8 +70,6 @@ if [ "$1" == "--config" ]; then
     shift 2
 fi
 
-echo $replace_script_options
-
 # Assign variables with default values
 gene_name="${gene_name:-$1}"
 vcf_file_location="${vcf_file_location:-$2}"
@@ -83,8 +81,6 @@ sample_file="${sample_file:-${7:-"samples.txt"}}"
 replace_script_location="${replace_script_location:-${8:-"./replace_gt_with_sample.sh"}}"
 replace_script_options="${replace_script_options:-${9:-""}}"
 output_file="${output_file:-${10:-"variants.tsv"}}"
-
-echo $replace_script_options
 
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
