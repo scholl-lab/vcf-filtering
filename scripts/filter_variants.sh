@@ -186,12 +186,10 @@ if [ "$use_replacement" == "true" ] && [ -z "$sample_file" ]; then
 fi
 
 # Assign default values if not set
-gene_name="${gene_name:-$1}"
-vcf_file_location="${vcf_file_location:-$2}"
-reference="${reference:-${3:-"GRCh38.mane.1.0.refseq"}}"
-add_chr="${add_chr:-${4:-true}}"
-filters="${filters:-${5:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}}"
-fields_to_extract="${fields_to_extract:-${6:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
+reference="${reference:-${"GRCh38.mane.1.0.refseq"}}"
+add_chr="${add_chr:-${true}}"
+filters="${filters:-${"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}}"
+fields_to_extract="${fields_to_extract:-${"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
 sample_file="${sample_file:-${7:-"samples.txt"}}"
 # By default, use the replacement script
 replace_script_location="${replace_script_location:-${"./replace_gt_with_sample.sh"}}"
@@ -262,7 +260,6 @@ if [ -z "$GT_field_number" ]; then
 fi
 
 # Modify the cmd to direct output appropriately
-cmd_end=" | tee /dev/stdout"
 if [ ! -z "$output_file" ]; then
     cmd_end=" > $output_file"
 fi
