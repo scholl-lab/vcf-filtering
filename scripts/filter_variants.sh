@@ -175,6 +175,16 @@ elif [ -z "$gene_name" ] && [ -z "$gene_file" ]; then
     exit 1
 fi
 
+# Check if use_replacement is set to true and sample_file is not provided, then compute the sample names from the VCF header.
+if [ "$use_replacement" == "true" ] && [ -z "$sample_file" ]; then
+    # Extract VCF header, then use grep and awk to parse the sample names
+    sample_names=$(bcftools view -h "$vcf_file_location" | grep "#CHROM" | awk '{ for(i=10; i<=NF; i++) print $i }' | sed -e ':a' -e 'N' -e '$!ba' -e 's/[\n|\r]/\,/g')
+    
+    # Create a temporary file to store the sample names
+    sample_file=$(mktemp)
+    echo "$sample_names" > "$sample_file"
+fi
+
 # Assign default values if not set
 gene_name="${gene_name:-$1}"
 vcf_file_location="${vcf_file_location:-$2}"

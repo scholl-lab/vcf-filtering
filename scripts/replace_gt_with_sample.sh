@@ -3,62 +3,69 @@
 # Documentation
 # Script Name: replace_gt_with_sample.sh
 # Description: This script takes a tab-delimited stream of data as input and replaces
-#              non-"0/0" values in the specified genotype (GT) field with corresponding
-#              values from a given sample file. If the --append-genotype flag is provided,
-#              the genotype is appended in parentheses after the sample ID.
-#              "0/0" genotypes are removed from the list.
+#              non-"0/0" genotypes in the specified field with corresponding sample IDs.
+#              If --append-genotype is set, genotypes are appended to the sample ID in parentheses.
+#              "0/0" genotypes are removed from the output.
 # Usage: 
-#    ./replace_gt_with_sample.sh [--append-genotype] <sample_file> <GT_field_number> 
-# Parameters:
-#    --append-genotype: (Optional) Flag to append the genotype in parentheses after the sample ID.
-#    sample_file: The path to the file containing the sample values to use for replacement.
-#    GT_field_number: The number of the field (column) in the input stream representing the GT values.
+#    ./replace_gt_with_sample.sh [options]
+#
+# Options:
+#    -a, --append-genotype: (Optional) Append the genotype to the sample ID.
+#    -s, --sample-file: (Optional) File with sample IDs, one per line.
+#    -g, --gt-field-number: Field number for the genotype.
+#    -l, --sample-list: (Optional) Comma-separated list of sample IDs.
+#
 # Output:
 #    The modified tab-delimited data is printed to the standard output, with the specified GT field
 #    having been updated as described above.
-# 
-# Example: your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
+#
+# Example: 
+#    your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
 
+# Default values
 APPEND_GENOTYPE=0
+SAMPLE_FILE="samples.txt"
+GT_FIELD_NUMBER=10
+SAMPLE_LIST=""  # By default, this is empty, indicating we're reading from a file.
 
 # Preprocess long options
 for arg in "$@"; do
   shift
   case "$arg" in
-    "--append-genotype") set -- "$@" "-a" ;;
-    "--sample-file")     set -- "$@" "-s" ;;
-    "--gt-field-number") set -- "$@" "-g" ;;
-    *)                   set -- "$@" "$arg"
+    "--append-genotype")  set -- "$@" "-a" ;;
+    "--sample-file")      set -- "$@" "-s" ;;
+    "--gt-field-number")  set -- "$@" "-g" ;;
+    "--sample-list")      set -- "$@" "-l" ;;
+    *)                    set -- "$@" "$arg" ;;
   esac
 done
 
-# Process command line options
-while getopts "as:g:" opt; do
+# Process options
+while getopts "as:g:l:" opt; do
     case ${opt} in
-        a ) 
-            APPEND_GENOTYPE=1
-            ;;
-        s )
-            SAMPLE_FILE="$OPTARG"
-            ;;
-        g )
-            GT_FIELD_NUMBER="$OPTARG"
-            ;;
-        \? )
-            echo "Usage: $0 [-a|--append-genotype] -s <sample_file>|--sample-file <sample_file> -g <GT_field_number>|--gt-field-number <GT_field_number>" >&2
-            exit 1
-            ;;
+        a ) APPEND_GENOTYPE=1 ;;
+        s ) SAMPLE_FILE="$OPTARG" ;;
+        g ) GT_FIELD_NUMBER="$OPTARG" ;;
+        l ) SAMPLE_LIST="$OPTARG" ;;
+        \? ) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
     esac
 done
 
-# Check if required arguments are provided
-if [ -z "$SAMPLE_FILE" ] || [ -z "$GT_FIELD_NUMBER" ]; then
-    echo "Usage: $0 [-a|--append-genotype] -s <sample_file>|--sample-file <sample_file> -g <GT_field_number>|--gt-field-number <GT_field_number>" >&2
+# Step 1: Read the sample list into an array
+# Check sample source
+if [[ -z "$SAMPLE_LIST" && ! -f "$SAMPLE_FILE" ]]; then
+    echo "Error: Sample file $SAMPLE_FILE not found." >&2
     exit 1
+elif [[ -n "$SAMPLE_LIST" && -n "$SAMPLE_FILE" ]]; then
+    echo "Warning: Both sample file and sample list provided. Using sample list." >&2
 fi
 
-# Step 1: Read the sample list into an array
-mapfile -t samples < "$SAMPLE_FILE"
+# Get samples
+if [[ -z "$SAMPLE_LIST" ]]; then
+    mapfile -t samples < "$SAMPLE_FILE"
+else
+    IFS=',' read -ra samples <<< "$SAMPLE_LIST"
+fi
 
 # Step 2: Process the input stream with awk
 awk -v FS='\t' -v OFS='\t' -v samples="${samples[*]}" -v GT_field="$GT_FIELD_NUMBER" -v APPEND="$APPEND_GENOTYPE" '
