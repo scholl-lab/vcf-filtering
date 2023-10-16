@@ -4,24 +4,24 @@
 # Script Name: filter_variants.sh
 # Description: This script filters VCF files to identify rare genetic variants in genes of interest.
 # Usage: 
-#    ./filter_variants.sh [--config config_file] <gene_name> <vcf_file_location> [reference] [add_chr] [filters] [fields_to_extract] [sample_file] [replace_script_location] [output_file]
+#    ./filter_variants.sh [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-o output_file]
 # Parameters:
-#    --config config_file: (Optional) The path to the configuration file containing default values for parameters.
-#    gene_name: The name of the gene of interest, e.g., "BICC1". Can be a comma-separated list of genes, e.g., "PKD1,PKD2".
-#    vcf_file_location: The location of the VCF file.
-#    reference: (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
-#    add_chr: (Optional, default: true) Whether or not to add "chr" to the chromosome name. Use "true" or "false".
-#    filters: (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
-#    fields_to_extract: (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
-#    sample_file: (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
-#    replace_script_location: (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
-#    replace_script_options: (Optional) Additional options to pass to the replace_gt_with_sample.sh script.
-#    output_file: (Optional, default: "variants.tsv") The name of the output file.
+#    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
+#    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+#    -v, --vcf_file_location location:   The location of the VCF file.
+#    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
+#    -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
+#    -f, --filters filters:              (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
+#    -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
+#    -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
+#    -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
+#    -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
+#    -h, --help:                         Displays help information.
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [--config config_file] <gene_name> <vcf_file_location> [reference] [add_chr] [filters] [fields_to_extract] [sample_file] [replace_script_location] [output_file]"
-    echo "Use --help for more information."
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-o output_file]"
+    echo "Use -h for more information."
 }
 
 print_help() {
@@ -29,48 +29,99 @@ print_help() {
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
 
 Parameters:
-    --config config_file: (Optional) The path to the configuration file containing default values for parameters.
-    gene_name: The name of the gene of interest, e.g., "BICC1". Can be a comma-separated list of genes, e.g., "PKD1,PKD2".
-    vcf_file_location: The location of the VCF file.
-    reference: (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
-    add_chr: (Optional, default: true) Whether or not to add "chr" to the chromosome name. Use "true" or "false".
-    filters: (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
-    fields_to_extract: (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
-    sample_file: (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
-    replace_script_location: (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
-    replace_script_options: (Optional) Additional options to pass to the replace_gt_with_sample.sh script.
-    output_file: (Optional, default: "variants.tsv") The name of the output file.
+    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
+    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+    -v, --vcf_file_location location:   The location of the VCF file.
+    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
+    -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
+    -f, --filters filters:              (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
+    -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
+    -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
+    -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
+    -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
+    -h, --help:                         Displays help information.
 
 Example:
-    ./filter_variants.sh --config my_config.conf BICC1 my_vcf_file.vcf
+    ./filter_variants.sh -g BICC1 -v my_vcf_file.vcf -o output.tsv
 EOF
 }
 
-# Check for --help option
-if [[ "$1" == "--help" ]]; then
-    print_help
-    exit 0
-fi
+# Transform long options to short ones
+for arg in "$@"; do
+  shift
+  case "$arg" in
+    "--config") set -- "$@" "-c" ;;
+    "--gene_name") set -- "$@" "-g" ;;
+    "--vcf_file_location") set -- "$@" "-v" ;;
+    "--reference") set -- "$@" "-r" ;;
+    "--add_chr") set -- "$@" "-a" ;;
+    "--filters") set -- "$@" "-f" ;;
+    "--fields_to_extract") set -- "$@" "-e" ;;
+    "--sample_file") set -- "$@" "-s" ;;
+    "--replace_script_location") set -- "$@" "-l" ;;
+    "--output_file") set -- "$@" "-o" ;;
+    *) set -- "$@" "$arg"
+  esac
+done
 
-# Check if a configuration file is provided
-if [ "$1" == "--config" ]; then
-    if [ -z "$2" ]; then
-        echo "Error: Configuration file not specified."
+# Parse command line arguments using getopts
+while getopts ":c:g:v:r:a:f:e:s:l:o:h" opt; do
+    case $opt in
+        c)
+            config_file="$OPTARG"
+            ;;
+        g)
+            gene_name="$OPTARG"
+            ;;
+        v)
+            vcf_file_location="$OPTARG"
+            ;;
+        r)
+            reference="$OPTARG"
+            ;;
+        a)
+            add_chr="$OPTARG"
+            ;;
+        f)
+            filters="$OPTARG"
+            ;;
+        e)
+            fields_to_extract="$OPTARG"
+            ;;
+        s)
+            sample_file="$OPTARG"
+            ;;
+        l)
+            replace_script_location="$OPTARG"
+            ;;
+        o)
+            output_file="$OPTARG"
+            ;;
+        h)
+            print_help
+            exit 0
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            exit 1
+            ;;
+    esac
+done
+
+# If a config file is provided, load it
+if [ ! -z "$config_file" ]; then
+    if [ ! -f "$config_file" ]; then
+        echo "Error: Configuration file $config_file not found."
         exit 1
     fi
-    if [ ! -f "$2" ]; then
-        echo "Error: Configuration file $2 not found."
-        exit 1
-    fi
-    
-    # Load the configuration file
-    source "$2"
-    
-    # Shift the positional parameters to get the rest of the command line arguments
-    shift 2
+    source "$config_file"
 fi
 
-# Assign variables with default values
+# Assign default values if not set
 gene_name="${gene_name:-$1}"
 vcf_file_location="${vcf_file_location:-$2}"
 reference="${reference:-${3:-"GRCh38.mane.1.0.refseq"}}"
@@ -79,8 +130,6 @@ filters="${filters:-${5:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gno
 fields_to_extract="${fields_to_extract:-${6:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
 sample_file="${sample_file:-${7:-"samples.txt"}}"
 replace_script_location="${replace_script_location:-${8:-"./replace_gt_with_sample.sh"}}"
-replace_script_options="${replace_script_options:-${9:-""}}"
-output_file="${output_file:-${10:-"variants.tsv"}}"
 
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
@@ -119,11 +168,17 @@ if [ -z "$GT_field_number" ]; then
     exit 1
 fi
 
+# Modify the cmd to direct output appropriately
+cmd_end=" | tee /dev/stdout"
+if [ ! -z "$output_file" ]; then
+    cmd_end=" > $output_file"
+fi
+
 # Construct the command pipeline
 cmd="snpEff genes2bed $reference $gene_name | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $replace_script_options $sample_file $GT_field_number > $output_file"
+cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $replace_script_options $sample_file $GT_field_number $cmd_end"
 # Execute the command pipeline
 eval $cmd
