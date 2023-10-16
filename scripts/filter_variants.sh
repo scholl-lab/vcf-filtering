@@ -8,6 +8,7 @@
 # Parameters:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
 #    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+#    -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
 #    -v, --vcf_file_location location:   The location of the VCF file.
 #    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
 #    -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
@@ -31,6 +32,7 @@ This script filters VCF files to identify rare genetic variants in genes of inte
 Parameters:
     -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
     -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+    -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
     -v, --vcf_file_location location:   The location of the VCF file.
     -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
     -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
@@ -52,6 +54,7 @@ for arg in "$@"; do
   case "$arg" in
     "--config") set -- "$@" "-c" ;;
     "--gene_name") set -- "$@" "-g" ;;
+    "--gene_file") set -- "$@" "-G" ;;
     "--vcf_file_location") set -- "$@" "-v" ;;
     "--reference") set -- "$@" "-r" ;;
     "--add_chr") set -- "$@" "-a" ;;
@@ -65,13 +68,16 @@ for arg in "$@"; do
 done
 
 # Parse command line arguments using getopts
-while getopts ":c:g:v:r:a:f:e:s:l:o:h" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:o:h" opt; do
     case $opt in
         c)
             config_file="$OPTARG"
             ;;
         g)
             gene_name="$OPTARG"
+            ;;
+        G)
+            gene_file="$OPTARG"
             ;;
         v)
             vcf_file_location="$OPTARG"
@@ -112,6 +118,12 @@ while getopts ":c:g:v:r:a:f:e:s:l:o:h" opt; do
     esac
 done
 
+# After parsing the arguments, check if both -g and -G are provided:
+if [ ! -z "$gene_name" ] && [ ! -z "$gene_file" ]; then
+    echo "Error: You can provide either a gene name using -g or a gene file using -G, but not both."
+    exit 1
+fi
+
 # If a config file is provided, load it
 if [ ! -z "$config_file" ]; then
     if [ ! -f "$config_file" ]; then
@@ -137,8 +149,21 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-# Replace commas in gene_name with spaces
-gene_name=$(echo "$gene_name" | tr ',' ' ')
+# If a gene file is provided, read its contents into gene_name and replace newlines with spaces
+if [ ! -z "$gene_file" ]; then
+    if [ ! -f "$gene_file" ]; then
+        echo "Error: Gene file $gene_file not found."
+        exit 1
+    fi
+    # Handle both Unix and Windows newlines
+    # based on https://stackoverflow.com/questions/1251999/how-can-i-replace-each-newline-n-with-a-space-using-sed
+    gene_name=$(sed -e ':a' -e 'N' -e '$!ba' -e 's/[\n|\r]/ /g' "$gene_file" | sed 's/ $//')
+fi
+
+# If a gene name is provided, replace commas in gene_name with spaces
+if [ ! -z "$gene_name" ]; then
+    gene_name=$(echo "$gene_name" | tr ',' ' ')
+fi
 
 # Validate add_chr parameter
 if [[ "$add_chr" != "true" && "$add_chr" != "false" ]]; then
@@ -179,6 +204,8 @@ cmd="snpEff genes2bed $reference $gene_name | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
+
 cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | $replace_script_location $replace_script_options $sample_file $GT_field_number $cmd_end"
+
 # Execute the command pipeline
 eval $cmd
