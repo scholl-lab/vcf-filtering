@@ -98,3 +98,9 @@ The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to re
 - bcftools 1.17
 - snpEff version SnpEff 5.1d (build 2022-04-19 15:49)
 - SnpSift version 5.1d (build 2022-04-19 15:50)
+
+# TODO
+- [ ] help message should be printed first if no arguments are provided
+- [ ] command line arguments should always override config file values
+- [ ] add option to filter by position or for specific variants instead of gene name, for variants check the reference allele
+- [ ] update README and usage description with examples
