@@ -53,7 +53,7 @@ SCRIPT_DATE="2023-10-23"
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-o output_file]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-o output_file] [-x]"
     echo "Use -h for more information."
 }
 
@@ -74,6 +74,8 @@ Parameters:
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
     -R, --use_replacement true/false:     (Optional, default: true) Whether or not to use the replacement script.
     -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
+    -x, --xlsx:                        (Optional) Convert the output to xlsx format.
+    -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
 Example:
@@ -108,6 +110,7 @@ for arg in "$@"; do
     "--replace_script_location") set -- "$@" "-l" ;;
     "--use_replacement") set -- "$@" "-R" ;;
     "--output_file") set -- "$@" "-o" ;;
+    "--xlsx") set -- "$@" "-x" ;;
     *) set -- "$@" "$arg"
   esac
 done
@@ -116,7 +119,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:x:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -130,6 +133,9 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:hV" opt; do
         l) args["replace_script_location"]="$OPTARG" ;;
         R) args["use_replacement"]="$OPTARG" ;;
         o) args["output_file"]="$OPTARG" ;;
+        x)
+            args["xlsx"]=true
+            ;;
         h) 
             print_help
             exit 0
@@ -270,6 +276,21 @@ if [ "$use_replacement" == "true" ]; then
 fi
 
 cmd="$cmd $cmd_end"
+
+# Check if xlsx conversion is requested
+if [ "${args["xlsx"]}" == "true" ]; then
+    # If the output file is not specified, use a default name
+    if [ -z "$output_file" ]; then
+        output_file="output.xlsx"
+    else
+        # If the output file is specified, but doesn't end with .xlsx, add the .xlsx extension
+        if [[ "$output_file" != *.xlsx ]]; then
+            output_file="${output_file}.xlsx"
+        fi
+    fi
+    # Append the conversion to the command pipeline
+    cmd="$cmd | ./tsv_to_excel.R -i - -o $output_file"
+fi
 
 # Execute the command pipeline
 eval $cmd
