@@ -189,7 +189,7 @@ fi
 reference="${reference:-"GRCh38.mane.1.0.refseq"}"
 add_chr="${add_chr:-true}"
 filters="${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}"
-fields_to_extract="${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}"
+fields_to_extract="${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC dbNSFP_clinvar_clnsig GEN[*].GT"}"
 sample_file="${sample_file:-samples.txt}"
 replace_script_location="${replace_script_location:-./replace_gt_with_sample.sh}"
 use_replacement="${use_replacement:-true}"
@@ -258,9 +258,14 @@ if [ -z "$GT_field_number" ]; then
     exit 1
 fi
 
-# Modify the cmd to direct output appropriately
-if [ ! -z "$output_file" ]; then
-    cmd_end=" > $output_file"
+# Create a temporary file for intermediate output if xlsx conversion is requested
+if [ "${args["xlsx"]}" == "true" ]; then
+    temp_output_file=$(mktemp)
+    cmd_end=" > $temp_output_file"
+else
+    if [ ! -z "$output_file" ]; then
+        cmd_end=" > $output_file"
+    fi
 fi
 
 # Construct the command pipeline
@@ -277,6 +282,9 @@ fi
 
 cmd="$cmd $cmd_end"
 
+# Execute the command pipeline
+eval $cmd
+
 # Check if xlsx conversion is requested
 if [ "${args["xlsx"]}" == "true" ]; then
     # If the output file is not specified, use a default name
@@ -288,12 +296,11 @@ if [ "${args["xlsx"]}" == "true" ]; then
             output_file="${output_file}.xlsx"
         fi
     fi
-    # Append the conversion to the command pipeline
-    cmd="$cmd | ./tsv_to_excel.R -i - -o $output_file"
+    # Use the temporary file as input for the xlsx conversion
+    cmd_xlsx="./tsv_to_excel.R -i $temp_output_file -o $output_file"
+    eval $cmd_xlsx
+    rm -f $temp_output_file
 fi
-
-# Execute the command pipeline
-eval $cmd
 
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
