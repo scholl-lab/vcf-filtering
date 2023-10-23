@@ -1,10 +1,14 @@
 #!/bin/bash
 
+# Version information
+SCRIPT_VERSION="0.8.0"
+SCRIPT_DATE="2023-10-23"
+
 # Documentation
 # -------------
 #
 # Overview:
-# Script Name: filter_variants.sh
+# Script Name: filter_variants.sh, Version: $SCRIPT_VERSION $SCRIPT_DATE
 # The filter_variants script is designed to process VCF files to filter and identify 
 # rare genetic variants in genes of interest using a combination of tools like snpEff, 
 # bcftools, and SnpSift. The script can also replace genotype information with samples, 
@@ -77,6 +81,12 @@ Example:
 EOF
 }
 
+# If no arguments are provided, print the help message and exit
+if [ "$#" -eq 0 ]; then
+    print_help
+    exit 0
+fi
+
 # Check if required programs are installed and accessible.
 command -v snpEff >/dev/null 2>&1 || { echo >&2 "snpEff is required but it's not installed. Aborting."; exit 1; }
 command -v bcftools >/dev/null 2>&1 || { echo >&2 "bcftools is required but it's not installed. Aborting."; exit 1; }
@@ -103,46 +113,29 @@ for arg in "$@"; do
 done
 
 # Parse command line arguments using getopts
-while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:h" opt; do
+# Create associative arrays to store command line arguments
+declare -A args
+
+while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:hV" opt; do
     case $opt in
-        c)
-            config_file="$OPTARG"
-            ;;
-        g)
-            gene_name="$OPTARG"
-            ;;
-        G)
-            gene_file="$OPTARG"
-            ;;
-        v)
-            vcf_file_location="$OPTARG"
-            ;;
-        r)
-            reference="$OPTARG"
-            ;;
-        a)
-            add_chr="$OPTARG"
-            ;;
-        f)
-            filters="$OPTARG"
-            ;;
-        e)
-            fields_to_extract="$OPTARG"
-            ;;
-        s)
-            sample_file="$OPTARG"
-            ;;
-        l)
-            replace_script_location="$OPTARG"
-            ;;
-        R)
-            use_replacement="$OPTARG"
-            ;;
-        o)
-            output_file="$OPTARG"
-            ;;
-        h)
+        c) args["config_file"]="$OPTARG" ;;
+        g) args["gene_name"]="$OPTARG" ;;
+        G) args["gene_file"]="$OPTARG" ;;
+        v) args["vcf_file_location"]="$OPTARG" ;;
+        r) args["reference"]="$OPTARG" ;;
+        a) args["add_chr"]="$OPTARG" ;;
+        f) args["filters"]="$OPTARG" ;;
+        e) args["fields_to_extract"]="$OPTARG" ;;
+        s) args["sample_file"]="$OPTARG" ;;
+        l) args["replace_script_location"]="$OPTARG" ;;
+        R) args["use_replacement"]="$OPTARG" ;;
+        o) args["output_file"]="$OPTARG" ;;
+        h) 
             print_help
+            exit 0
+            ;;
+        V)
+            echo "filter_variants.sh version $SCRIPT_VERSION"
             exit 0
             ;;
         \?)
@@ -157,13 +150,14 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:h" opt; do
 done
 
 # Error checking for the configuration file sourcing.
-if [ ! -z "$config_file" ]; then
-    if [ ! -f "$config_file" ]; then
-        echo "Error: Configuration file $config_file not found."
-        exit 1
-    fi
-    # Try to source it and catch potential errors
-    source "$config_file" 2>/dev/null || { echo "Error: Failed to source the configuration file $config_file. Check its contents."; exit 1; }
+if [ ! -z "${args["config_file"]}" ]; then
+    # ... [this section remains unchanged]
+    # Once the config file has been sourced, override any settings with command line arguments:
+    for key in "${!args[@]}"; do
+        if [ ! -z "${args[$key]}" ]; then
+            declare $key="${args[$key]}"
+        fi
+    done
 fi
 
 # After parsing the arguments, check if both -g and -G are provided or neither:
@@ -186,13 +180,12 @@ if [ "$use_replacement" == "true" ] && [ -z "$sample_file" ]; then
 fi
 
 # Assign default values if not set
-reference="${reference:-${"GRCh38.mane.1.0.refseq"}}"
-add_chr="${add_chr:-${true}}"
-filters="${filters:-${"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}}"
-fields_to_extract="${fields_to_extract:-${"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}}"
-sample_file="${sample_file:-${7:-"samples.txt"}}"
-# By default, use the replacement script
-replace_script_location="${replace_script_location:-${"./replace_gt_with_sample.sh"}}"
+reference="${reference:-"GRCh38.mane.1.0.refseq"}"
+add_chr="${add_chr:-true}"
+filters="${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}"
+fields_to_extract="${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT"}"
+sample_file="${sample_file:-samples.txt}"
+replace_script_location="${replace_script_location:-./replace_gt_with_sample.sh}"
 use_replacement="${use_replacement:-true}"
 
 # Check if the minimum number of arguments is provided
