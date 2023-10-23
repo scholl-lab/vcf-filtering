@@ -98,9 +98,19 @@ if (input_file == "-") {
   # Read the data
   log_message("Reading data from stdin...")
   data <- read_tsv(con, col_types = cols())
-  
+
   # Set output file name. If provided, use that. Otherwise, default to "output.xlsx"
   output_file <- ifelse(!is.null(output_file), output_file, "output.xlsx")
+} else {
+  # Check if the file exists
+  if (!file.exists(input_file)) {
+    stop(paste("Error: File", input_file, "does not exist."))
+  }
+  # Read from the given file path
+  log_message(paste("Reading data from", input_file, "..."))
+  data <- read_tsv(input_file, col_types = cols())
+  # Set output file name. If provided, use that. Otherwise, derive from input file name
+  output_file <- ifelse(!is.null(output_file), output_file, gsub("\\.tsv$", ".xlsx", input_file))
 }
 
 # Write data to an Excel file with the specified sheet name
