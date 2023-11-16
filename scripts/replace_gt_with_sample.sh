@@ -1,34 +1,70 @@
 #!/bin/bash
 
+# Version information
+SCRIPT_VERSION="0.2.0"
+SCRIPT_DATE="2023-11-16"
+
 # Documentation
-# Script Name: replace_gt_with_sample.sh
+# -------------
+#
+# Script Name: replace_gt_with_sample.sh, Version: $SCRIPT_VERSION, Date: $SCRIPT_DATE
 # Description: This script takes a tab-delimited stream of data as input and replaces
 #              non-"0/0" genotypes in the specified field with corresponding sample IDs.
 #              If --append-genotype is set, genotypes are appended to the sample ID in parentheses.
 #              "0/0" genotypes are removed from the output.
 # Usage: 
-#    ./replace_gt_with_sample.sh [options]
+#    ./replace_gt_with_sample.sh [options] | your_command
 #
 # Options:
 #    -a, --append-genotype: (Optional) Append the genotype to the sample ID.
 #    -s, --sample-file: (Optional) File with sample IDs, one per line.
 #    -g, --gt-field-number: Field number for the genotype.
 #    -l, --sample-list: (Optional) Comma-separated list of sample IDs.
-#
-# Output:
-#    The modified tab-delimited data is printed to the standard output, with the specified GT field
-#    having been updated as described above.
+#    -h, --help: Display this help message.
+#    -V, --version: Display version information.
 #
 # Example: 
 #    your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
+
+# Usage information
+print_usage() {
+    echo "Usage: $0 [options] | your_command"
+    echo "Use -h for more information."
+}
+
+# Help information
+print_help() {
+    cat << EOF
+This script takes a tab-delimited stream of data as input and replaces non-"0/0" genotypes in a specified field with corresponding sample IDs. Genotypes can optionally be appended to the sample ID. "0/0" genotypes are removed from the output.
+
+Options:
+    -a, --append-genotype: (Optional) Append the genotype to the sample ID.
+    -s, --sample-file: (Optional) File with sample IDs, one per line.
+    -g, --gt-field-number: Field number for the genotype.
+    -l, --sample-list: (Optional) Comma-separated list of sample IDs.
+    -h, --help: Display this help message.
+    -V, --version: Display version information.
+
+Example: 
+    your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
+
+Version: $SCRIPT_VERSION, Date: $SCRIPT_DATE
+EOF
+}
+
+# Check for no arguments
+if [ "$#" -eq 0 ]; then
+    print_help
+    exit 0
+fi
 
 # Default values
 APPEND_GENOTYPE=0
 SAMPLE_FILE="samples.txt"
 GT_FIELD_NUMBER=10
-SAMPLE_LIST=""  # By default, this is empty, indicating we're reading from a file.
+SAMPLE_LIST=""
 
-# Preprocess long options
+# Preprocess long options and add version/help handling
 for arg in "$@"; do
   shift
   case "$arg" in
@@ -36,18 +72,22 @@ for arg in "$@"; do
     "--sample-file")      set -- "$@" "-s" ;;
     "--gt-field-number")  set -- "$@" "-g" ;;
     "--sample-list")      set -- "$@" "-l" ;;
+    "--help")             set -- "$@" "-h" ;;
+    "--version")          set -- "$@" "-V" ;;
     *)                    set -- "$@" "$arg" ;;
   esac
 done
 
 # Process options
-while getopts "as:g:l:" opt; do
+while getopts "as:g:l:hV" opt; do
     case ${opt} in
         a ) APPEND_GENOTYPE=1 ;;
         s ) SAMPLE_FILE="$OPTARG" ;;
         g ) GT_FIELD_NUMBER="$OPTARG" ;;
         l ) SAMPLE_LIST="$OPTARG" ;;
-        \? ) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
+        h ) print_help; exit 0 ;;
+        V ) echo "Version $SCRIPT_VERSION, Date $SCRIPT_DATE"; exit 0 ;;
+        \? ) print_usage; exit 1 ;;
     esac
 done
 
