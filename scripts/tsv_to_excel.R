@@ -6,25 +6,27 @@
 # Date: 2023-11-16
 
 # Version Information
-SCRIPT_VERSION <- "0.3.0"
+SCRIPT_VERSION <- "0.4.0"
 SCRIPT_DATE <- "2023-11-16"
 
 # Load necessary libraries
 library(readr)
 library(writexl)
+library(openxlsx)
 
 # Function to display usage instructions
 usage <- function() {
   cat("Usage:\n")
-  cat(paste0("  ", script_name, " -i /path/to/input_file.tsv [-o /path/to/output_file.xlsx] [-s sheet_name]\n"))
+  cat(paste0("  ", script_name, " -i /path/to/input_file.tsv [-o /path/to/output_file.xlsx] [-s sheet_name] [-a append]\n"))
   cat("  Or, to read from stdin:\n")
-  cat(paste0("  cat /path/to/input_file.tsv | ", script_name, " -i - [-o /path/to/output_file.xlsx] [-s sheet_name]\n"))
+  cat(paste0("  cat /path/to/input_file.tsv | ", script_name, " -i - [-o /path/to/output_file.xlsx] [-s sheet_name] [-a append]\n"))
   cat("Flags:\n")
   cat("  -h, --help: Display this help message\n")
   cat("  -v, --version: Display script version\n")
   cat("  -i, --input: Specify the input TSV file or '-' for stdin\n")
   cat("  -o, --output: Specify the output Excel file (optional)\n")
   cat("  -s, --sheet: Specify the sheet name in the Excel file (optional, defaults to 'data')\n")
+  cat("  -a, --append: Append to an existing Excel file without overwriting (optional)\n")
 }
 
 # Logging function with levels
@@ -47,6 +49,7 @@ if (length(script_file_arg) > 0) {
 input_file <- NULL
 output_file <- NULL
 sheet_name <- "data"
+append_to_file <- FALSE
 display_help <- FALSE
 display_version <- FALSE
 
@@ -64,9 +67,22 @@ while (i <= length(script_args)) {
          '-o' = {i <- i + 1; output_file <- script_args[i]},
          '--output' = {i <- i + 1; output_file <- script_args[i]},
          '-s' = {i <- i + 1; sheet_name <- script_args[i]},
-         '--sheet' = {i <- i + 1; sheet_name <- script_args[i]}
+         '--sheet' = {i <- i + 1; sheet_name <- script_args[i]},
+         '-a' = {append_to_file <- TRUE},
+         '--append' = {append_to_file <- TRUE}
   )
   i <- i + 1
+}
+
+# Function to find a unique sheet name
+find_unique_sheet_name <- function(existing_sheets, base_name) {
+  sheet_name <- base_name
+  counter <- 1
+  while(sheet_name %in% existing_sheets) {
+    sheet_name <- paste0(base_name, "_", counter)
+    counter <- counter + 1
+  }
+  return(sheet_name)
 }
 
 # Display version if the version flag is set
@@ -122,7 +138,28 @@ if (input_file == "-") {
 }
 
 # Write data to an Excel file with the specified sheet name
-log_message(paste("Writing data to", output_file, "in sheet", sheet_name, "..."))
-output_list <- setNames(list(data), sheet_name)
-write_xlsx(output_list, output_file)
-log_message("Operation completed successfully!")
+if (append_to_file && file.exists(output_file)) {
+  # Load existing workbook
+  wb <- loadWorkbook(output_file)
+
+  # get existing sheet names
+  existing_sheets <- getSheetNames(output_file)
+
+  # Find a unique sheet name if it already exists
+  if (sheet_name %in% existing_sheets) {
+    sheet_name <- find_unique_sheet_name(existing_sheets, sheet_name)
+  }
+
+  # Add data to the new sheet
+  addWorksheet(wb, sheet_name)
+  writeData(wb, sheet_name, data)
+  saveWorkbook(wb, output_file, overwrite = TRUE)
+  log_message(paste("Appended data to", output_file, "in sheet", sheet_name))
+} else {
+  # Create new workbook or overwrite existing file
+  output_list <- setNames(list(data), sheet_name)
+  write_xlsx(output_list, output_file)
+  log_message(paste("Written data to", output_file, "in sheet", sheet_name))
+}
+
+quit(save = "no", status = 0)

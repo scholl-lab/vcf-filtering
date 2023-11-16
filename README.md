@@ -101,8 +101,11 @@ The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to re
 
 # TODO
 - [x] help message should be printed first if no arguments are provided
-- [ ] command line arguments should always override config file values
+- [x] command line arguments should always override config file values
 - [x] write a script to convert the tsv file to an Excel file
 - [ ] add option to filter by position or for specific variants instead of gene name, for variants check the reference allele
 - [ ] update README and usage description with examples for all scripts
 - [ ] add documentation with examples for all scripts
+- [ ] add phenoytpes to the output using the phenotype file and the filter_pheotypes.sh script
+- [ ] add a script to generate screenshots of the alignment of the variants in the IGV browser for validation of the filtering variants
+- [ ] add installation instructions for all required tools
