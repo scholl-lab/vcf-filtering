@@ -4,7 +4,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.11.0"
+SCRIPT_VERSION="0.12.0"
 SCRIPT_DATE="2023-11-16"
 
 # Default values
@@ -260,6 +260,25 @@ for file in "${files_to_check[@]}"; do
     fi
 done
 
+# Create a temporary file for metadata
+metadata_file=$(mktemp)
+
+# Function to add metadata
+add_metadata() {
+    echo "$1" >> "$metadata_file"
+}
+
+# Adding metadata
+add_metadata "Script Name: $SCRIPT_NAME"
+add_metadata "Version: $SCRIPT_VERSION"
+add_metadata "Date: $SCRIPT_DATE"
+add_metadata "Gene Name: $gene_name"
+add_metadata "VCF File Location: $vcf_file_location"
+add_metadata "Reference: $reference"
+add_metadata "Add Chr: $add_chr"
+add_metadata "Filters: $filters"
+add_metadata "Fields to Extract: $fields_to_extract"
+
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
 echo "---------------------------------------------------------" >&2
@@ -315,21 +334,19 @@ cmd="$cmd $cmd_end"
 # Execute the command pipeline
 eval $cmd
 
-# Check if xlsx conversion is requested
+# After the main processing, add the metadata to the Excel file
 if [ "${args["xlsx"]}" == "true" ]; then
-    # If the output file is not specified, use a default name
-    if [ -z "$output_file" ]; then
-        output_file="output.xlsx"
-    else
-        # If the output file is specified, but doesn't end with .xlsx, add the .xlsx extension
-        if [[ "$output_file" != *.xlsx ]]; then
-            output_file="${output_file}.xlsx"
-        fi
-    fi
-    # Use the temporary file as input for the xlsx conversion
-    cmd_xlsx="$tsv_to_excel_location -i $temp_output_file -o $output_file $tsv_to_excel_options"
+    # Convert the main output to Excel
+    cmd_xlsx="$tsv_to_excel_location -i $temp_output_file -o $output_file -s 'Results' $tsv_to_excel_options"
     eval $cmd_xlsx
+
+    # Add metadata to the Excel file in a new sheet
+    cmd_xlsx_meta="$tsv_to_excel_location -i $metadata_file -o $output_file -s 'Metadata' -a"
+    eval $cmd_xlsx_meta
+
+    # Cleanup
     rm -f $temp_output_file
+    rm -f $metadata_file
 fi
 
 # Informative echo statements
