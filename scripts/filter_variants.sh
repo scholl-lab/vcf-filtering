@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Version information
-SCRIPT_VERSION="0.8.0"
-SCRIPT_DATE="2023-10-23"
+SCRIPT_VERSION="0.9.0"
+SCRIPT_DATE="2023-11-16"
 
 # Documentation
 # -------------
@@ -41,8 +41,11 @@ SCRIPT_DATE="2023-10-23"
 #    -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
 #    -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
 #    -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
-#    -R, --use_replacement true/false:     (Optional, default: true) Whether or not to use the replacement script.
+#    -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
+#    -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
 #    -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
+#    -x, --xlsx:                         (Optional) Convert the output to xlsx format.
+#    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
 #
 # Example:
@@ -53,7 +56,7 @@ SCRIPT_DATE="2023-10-23"
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-o output_file] [-x]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x]"
     echo "Use -h for more information."
 }
 
@@ -72,9 +75,10 @@ Parameters:
     -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
     -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
-    -R, --use_replacement true/false:     (Optional, default: true) Whether or not to use the replacement script.
+    -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
+    -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
     -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
-    -x, --xlsx:                        (Optional) Convert the output to xlsx format.
+    -x, --xlsx:                         (Optional) Convert the output to xlsx format.
     -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
@@ -109,6 +113,7 @@ for arg in "$@"; do
     "--sample_file") set -- "$@" "-s" ;;
     "--replace_script_location") set -- "$@" "-l" ;;
     "--use_replacement") set -- "$@" "-R" ;;
+    "--replace_script_options") set -- "$@" "-P" ;;
     "--output_file") set -- "$@" "-o" ;;
     "--xlsx") set -- "$@" "-x" ;;
     *) set -- "$@" "$arg"
@@ -119,7 +124,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:x:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -132,6 +137,7 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:R:o:x:hV" opt; do
         s) args["sample_file"]="$OPTARG" ;;
         l) args["replace_script_location"]="$OPTARG" ;;
         R) args["use_replacement"]="$OPTARG" ;;
+        P) args["replace_script_options"]="$OPTARG" ;;
         o) args["output_file"]="$OPTARG" ;;
         x)
             args["xlsx"]=true
@@ -243,6 +249,15 @@ done
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
 echo "---------------------------------------------------------" >&2
+echo "filter_variants.sh version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
+
+# Display version information of the scripts used
+echo "Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
+
+# Display version information of the tools used
+echo "snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
+echo "bcftools version:" $(bcftools --version | head -n 1) >&2
+
 echo "Initiating the variant filtering process..." >&2
 echo "Starting time: $(date)" >&2
 echo "Target gene(s): $gene_name" >&2
