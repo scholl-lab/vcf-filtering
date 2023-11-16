@@ -66,6 +66,7 @@ APPEND_GENOTYPE=0
 SAMPLE_FILE="samples.txt"
 GT_FIELD_NUMBER=10
 SAMPLE_LIST=""
+SEPARATOR=";"  # Default separator
 
 # Preprocess long options and add version/help handling
 for arg in "$@"; do
@@ -82,12 +83,13 @@ for arg in "$@"; do
 done
 
 # Process options
-while getopts "as:g:l:hV" opt; do
+while getopts "as:g:l:p:hV" opt; do
     case ${opt} in
         a ) APPEND_GENOTYPE=1 ;;
         s ) SAMPLE_FILE="$OPTARG" ;;
         g ) GT_FIELD_NUMBER="$OPTARG" ;;
         l ) SAMPLE_LIST="$OPTARG" ;;
+        p ) SEPARATOR="$OPTARG" ;;  # Capture the custom separator
         h ) print_help; exit 0 ;;
         V ) echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"; exit 0 ;;
         \? ) print_usage; exit 1 ;;
@@ -111,7 +113,7 @@ else
 fi
 
 # Step 2: Process the input stream with awk
-awk -v FS='\t' -v OFS='\t' -v samples="${samples[*]}" -v GT_field="$GT_FIELD_NUMBER" -v APPEND="$APPEND_GENOTYPE" '
+awk -v FS='\t' -v OFS='\t' -v samples="${samples[*]}" -v GT_field="$GT_FIELD_NUMBER" -v APPEND="$APPEND_GENOTYPE" -v SEP="$SEPARATOR" '
 BEGIN {
     # Split the samples into an array
     split(samples, sample_arr, ",");
@@ -146,7 +148,7 @@ BEGIN {
                 $(GT_field) = genotypes[i];
                 first = 0;
             } else {
-                $(GT_field) = $(GT_field) "," genotypes[i];
+                $(GT_field) = $(GT_field) SEP genotypes[i];
             }
         }
     }
