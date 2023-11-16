@@ -3,11 +3,11 @@
 # tsv_to_excel.R
 # This script reads a TSV formatted file (or input from stdin) and writes it to an Excel file.
 # Author: Bernt Popp
-# Date: 2023-10-23
+# Date: 2023-11-16
 
 # Version Information
-SCRIPT_VERSION <- "0.2.0"
-SCRIPT_DATE <- "2023-10-23"
+SCRIPT_VERSION <- "0.3.0"
+SCRIPT_DATE <- "2023-11-16"
 
 # Load necessary libraries
 library(readr)
@@ -16,9 +16,9 @@ library(writexl)
 # Function to display usage instructions
 usage <- function() {
   cat("Usage:\n")
-  cat("  ./tsv_to_excel.R -i /path/to/input_file.tsv [-o /path/to/output_file.xlsx] [-s sheet_name]\n")
+  cat(paste0("  ", script_name, " -i /path/to/input_file.tsv [-o /path/to/output_file.xlsx] [-s sheet_name]\n"))
   cat("  Or, to read from stdin:\n")
-  cat("  cat /path/to/input_file.tsv | ./tsv_to_excel.R -i - [-o /path/to/output_file.xlsx] [-s sheet_name]\n")
+  cat(paste0("  cat /path/to/input_file.tsv | ", script_name, " -i - [-o /path/to/output_file.xlsx] [-s sheet_name]\n"))
   cat("Flags:\n")
   cat("  -h, --help: Display this help message\n")
   cat("  -v, --version: Display script version\n")
@@ -33,7 +33,15 @@ log_message <- function(message, level = "INFO") {
 }
 
 # Fetch command line arguments
-args <- commandArgs(trailingOnly = TRUE)
+script_args <- commandArgs(trailingOnly = FALSE)
+
+# Find the argument that contains '--file=' and extract the script name
+script_file_arg <- grep("--file=", script_args, value = TRUE)
+if (length(script_file_arg) > 0) {
+  script_name <- basename(sub("--file=", "", script_file_arg))
+} else {
+  script_name <- "Unknown"  # Fallback if the script name cannot be determined
+}
 
 # Initialize variables
 input_file <- NULL
@@ -44,26 +52,26 @@ display_version <- FALSE
 
 # Parse the command line arguments for flags and values
 i <- 1
-while (i <= length(args)) {
-  arg <- args[i]
+while (i <= length(script_args)) {
+  arg <- script_args[i]
   switch(arg,
          '-h' = {display_help <- TRUE},
          '--help' = {display_help <- TRUE},
          '-v' = {display_version <- TRUE},
          '--version' = {display_version <- TRUE},
-         '-i' = {i <- i + 1; if(i <= length(args)) {input_file <- args[i]} else {log_message("Missing value for -i flag.", "ERROR"); quit(save="no", status=1)}},
-         '--input' = {i <- i + 1; if(i <= length(args)) {input_file <- args[i]} else {log_message("Missing value for --input flag.", "ERROR"); quit(save="no", status=1)}},
-         '-o' = {i <- i + 1; output_file <- args[i]},
-         '--output' = {i <- i + 1; output_file <- args[i]},
-         '-s' = {i <- i + 1; sheet_name <- args[i]},
-         '--sheet' = {i <- i + 1; sheet_name <- args[i]}
+         '-i' = {i <- i + 1; if(i <= length(script_args)) {input_file <- script_args[i]} else {log_message("Missing value for -i flag.", "ERROR"); quit(save="no", status=1)}},
+         '--input' = {i <- i + 1; if(i <= length(script_args)) {input_file <- script_args[i]} else {log_message("Missing value for --input flag.", "ERROR"); quit(save="no", status=1)}},
+         '-o' = {i <- i + 1; output_file <- script_args[i]},
+         '--output' = {i <- i + 1; output_file <- script_args[i]},
+         '-s' = {i <- i + 1; sheet_name <- script_args[i]},
+         '--sheet' = {i <- i + 1; sheet_name <- script_args[i]}
   )
   i <- i + 1
 }
 
 # Display version if the version flag is set
 if (display_version) {
-  cat(paste("tsv_to_excel.R Version:", SCRIPT_VERSION, "-", SCRIPT_DATE, "\n"))
+  cat(paste(script_name, "Version:", SCRIPT_VERSION, "-", SCRIPT_DATE, "\n"))
   quit(save = "no", status = 0)
 }
 

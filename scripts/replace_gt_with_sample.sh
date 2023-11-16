@@ -1,19 +1,22 @@
 #!/bin/bash
 
+# Define a variable for the script's name
+SCRIPT_NAME=$(basename "$0")
+
 # Version information
-SCRIPT_VERSION="0.2.0"
+SCRIPT_VERSION="0.3.0"
 SCRIPT_DATE="2023-11-16"
 
 # Documentation
 # -------------
 #
-# Script Name: replace_gt_with_sample.sh, Version: $SCRIPT_VERSION, Date: $SCRIPT_DATE
+# Script Name: $SCRIPT_NAME, Version: $SCRIPT_VERSION, Date: $SCRIPT_DATE
 # Description: This script takes a tab-delimited stream of data as input and replaces
 #              non-"0/0" genotypes in the specified field with corresponding sample IDs.
 #              If --append-genotype is set, genotypes are appended to the sample ID in parentheses.
 #              "0/0" genotypes are removed from the output.
 # Usage: 
-#    ./replace_gt_with_sample.sh [options] | your_command
+#    ./$SCRIPT_NAME [options] | your_command
 #
 # Options:
 #    -a, --append-genotype: (Optional) Append the genotype to the sample ID.
@@ -24,7 +27,7 @@ SCRIPT_DATE="2023-11-16"
 #    -V, --version: Display version information.
 #
 # Example: 
-#    your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
+#    your_command | ./$SCRIPT_NAME -a --sample-file path/to/samplefile.txt --gt-field-number 14
 
 # Usage information
 print_usage() {
@@ -46,7 +49,7 @@ Options:
     -V, --version: Display version information.
 
 Example: 
-    your_command | ./replace_gt_with_sample.sh -a --sample-file path/to/samplefile.txt --gt-field-number 14
+    your_command | ./$SCRIPT_NAME -a --sample-file path/to/samplefile.txt --gt-field-number 14
 
 Version: $SCRIPT_VERSION, Date: $SCRIPT_DATE
 EOF
@@ -86,7 +89,7 @@ while getopts "as:g:l:hV" opt; do
         g ) GT_FIELD_NUMBER="$OPTARG" ;;
         l ) SAMPLE_LIST="$OPTARG" ;;
         h ) print_help; exit 0 ;;
-        V ) echo "Version $SCRIPT_VERSION, Date $SCRIPT_DATE"; exit 0 ;;
+        V ) echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"; exit 0 ;;
         \? ) print_usage; exit 1 ;;
     esac
 done

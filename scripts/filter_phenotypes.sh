@@ -1,14 +1,17 @@
 #!/bin/bash
 
+# Define a variable for the script's name
+SCRIPT_NAME=$(basename "$0")
+
 # Version information
-SCRIPT_VERSION="0.1.0"
-SCRIPT_DATE="2023-11-13"
+SCRIPT_VERSION="0.2.0"
+SCRIPT_DATE="2023-11-16"
 
 # Documentation
 # -------------
 #
 # Overview:
-# Script Name: filter_phenotypes.sh, Version: $SCRIPT_VERSION $SCRIPT_DATE
+# Script Name: $SCRIPT_NAME, Version: $SCRIPT_VERSION $SCRIPT_DATE
 # This script is designed to filter CSV/TSV files based on specified sample IDs.
 #
 # Requirements:
@@ -16,7 +19,7 @@ SCRIPT_DATE="2023-11-13"
 # - GNU bash
 #
 # Usage:
-# ./filter_phenotypes.sh [-f input_file] [-o output_file] [-d output_delimiter] [-s sample_file] [-l sample_list] [-c column_name]
+# ./$SCRIPT_NAME [-f input_file] [-o output_file] [-d output_delimiter] [-s sample_file] [-l sample_list] [-c column_name]
 #
 # Detailed Options:
 #    -f, --input-file:         Path to the CSV/TSV file to be filtered.
@@ -29,7 +32,7 @@ SCRIPT_DATE="2023-11-13"
 #    -V, --version:            Displays version information.
 #
 # Example:
-#    ./filter_phenotypes.sh -f input.csv -o output.tsv -l "329991,327338" -c "CGRSequenceID"
+#    ./$SCRIPT_NAME -f input.csv -o output.tsv -l "329991,327338" -c "CGRSequenceID"
 
 # Function to display help information
 print_help() {
@@ -58,7 +61,7 @@ fi
 
 # Handle the version argument
 if [ "$1" == "-V" ]; then
-    echo "filter_phenotypes.sh version $SCRIPT_VERSION $SCRIPT_DATE"
+    echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"
     exit 0
 fi
 

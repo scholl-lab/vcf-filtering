@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Define a variable for the script's name
+SCRIPT_NAME=$(basename "$0")
+
 # Version information
 SCRIPT_VERSION="0.9.0"
 SCRIPT_DATE="2023-11-16"
@@ -8,8 +11,8 @@ SCRIPT_DATE="2023-11-16"
 # -------------
 #
 # Overview:
-# Script Name: filter_variants.sh, Version: $SCRIPT_VERSION $SCRIPT_DATE
-# The filter_variants script is designed to process VCF files to filter and identify 
+# Script Name: $SCRIPT_NAME, Version: $SCRIPT_VERSION $SCRIPT_DATE
+# The $SCRIPT_NAME script is designed to process VCF files to filter and identify 
 # rare genetic variants in genes of interest using a combination of tools like snpEff, 
 # bcftools, and SnpSift. The script can also replace genotype information with samples, 
 # apply various filters, and extract specific fields from the VCF.
@@ -28,7 +31,7 @@ SCRIPT_DATE="2023-11-16"
 #    - SnpSift version 5.1d (build 2022-04-19 15:50)
 #
 # Usage:
-# ./filter_variants.sh [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file]
+# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file]
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
@@ -50,9 +53,9 @@ SCRIPT_DATE="2023-11-16"
 #
 # Example:
 # Basic usage:
-# ./filter_variants.sh -g BICC1 -v my_vcf_file.vcf
+# ./$SCRIPT_NAME -g BICC1 -v my_vcf_file.vcf
 # Advanced usage with multiple options:
-# ./filter_variants.sh -c config.cfg -G genes.txt -v my_vcf_file.vcf -r "GRCh38.mane.1.0.refseq" -o output.tsv
+# ./$SCRIPT_NAME -c config.cfg -G genes.txt -v my_vcf_file.vcf -r "GRCh38.mane.1.0.refseq" -o output.tsv
 
 # Usage information
 print_usage() {
@@ -83,7 +86,7 @@ Parameters:
     -h, --help:                         Displays help information.
 
 Example:
-    ./filter_variants.sh -g BICC1 -v my_vcf_file.vcf -o output.tsv
+    ./$SCRIPT_NAME -g BICC1 -v my_vcf_file.vcf -o output.tsv
 EOF
 }
 
@@ -147,7 +150,7 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:hV" opt; do
             exit 0
             ;;
         V)
-            echo "filter_variants.sh version $SCRIPT_VERSION"
+            echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE";
             exit 0
             ;;
         \?)
@@ -249,14 +252,15 @@ done
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
 echo "---------------------------------------------------------" >&2
-echo "filter_variants.sh version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
+echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
 
 # Display version information of the scripts used
 echo "Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
+echo "Using:" $(./tsv_to_excel.R --version 2>&1 | head -n 1) >&2
 
 # Display version information of the tools used
-echo "snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
-echo "bcftools version:" $(bcftools --version | head -n 1) >&2
+echo "With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
+echo "With: bcftools version:" $(bcftools --version | head -n 1) >&2
 
 echo "Initiating the variant filtering process..." >&2
 echo "Starting time: $(date)" >&2
