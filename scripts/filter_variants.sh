@@ -4,7 +4,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.9.0"
+SCRIPT_VERSION="0.10.0"
 SCRIPT_DATE="2023-11-16"
 
 # Documentation
@@ -166,7 +166,6 @@ done
 
 # Error checking for the configuration file sourcing.
 if [ ! -z "${args["config_file"]}" ]; then
-    # ... [this section remains unchanged]
     # Once the config file has been sourced, override any settings with command line arguments:
     for key in "${!args[@]}"; do
         if [ ! -z "${args[$key]}" ]; then
@@ -201,6 +200,7 @@ filters="${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_e
 fields_to_extract="${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC dbNSFP_clinvar_clnsig GEN[*].GT"}"
 sample_file="${sample_file:-samples.txt}"
 replace_script_location="${replace_script_location:-./replace_gt_with_sample.sh}"
+replace_script_options="${replace_script_options:-"--append-genotype"}"
 use_replacement="${use_replacement:-true}"
 
 # Check if the minimum number of arguments is provided

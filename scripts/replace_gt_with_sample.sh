@@ -4,7 +4,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.3.0"
+SCRIPT_VERSION="0.4.0"
 SCRIPT_DATE="2023-11-16"
 
 # Documentation
