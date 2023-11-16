@@ -4,8 +4,21 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.10.0"
+SCRIPT_VERSION="0.11.0"
 SCRIPT_DATE="2023-11-16"
+
+# Default values
+reference="GRCh38.mane.1.0.refseq"
+add_chr=true
+filters="(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"
+fields_to_extract="CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC dbNSFP_clinvar_clnsig GEN[*].GT"
+sample_file="samples.txt"
+replace_script_location="./replace_gt_with_sample.sh"
+replace_script_options="--append-genotype"
+tsv_to_excel_location="./tsv_to_excel.R"  # Default excel conversion script location
+tsv_to_excel_options=""  # Default is empty, meaning no extra options
+use_replacement=true
+output_file=""
 
 # Documentation
 # -------------
@@ -80,6 +93,8 @@ Parameters:
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
+    -T, --tsv-to-excel-location loc:   (Optional, default: "./tsv_to_excel.R") The path to the tsv_to_excel.R script.
+    -X, --tsv-to-excel-options opts:   (Optional) Additional options for the tsv_to_excel.R script.
     -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
     -x, --xlsx:                         (Optional) Convert the output to xlsx format.
     -V, --version:                      Displays version information.
@@ -117,6 +132,8 @@ for arg in "$@"; do
     "--replace_script_location") set -- "$@" "-l" ;;
     "--use_replacement") set -- "$@" "-R" ;;
     "--replace_script_options") set -- "$@" "-P" ;;
+    "--tsv-to-excel-location") set -- "$@" "-T" ;;
+    "--tsv-to-excel-options") set -- "$@" "-X" ;;
     "--output_file") set -- "$@" "-o" ;;
     "--xlsx") set -- "$@" "-x" ;;
     *) set -- "$@" "$arg"
@@ -127,7 +144,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -141,6 +158,8 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:hV" opt; do
         l) args["replace_script_location"]="$OPTARG" ;;
         R) args["use_replacement"]="$OPTARG" ;;
         P) args["replace_script_options"]="$OPTARG" ;;
+        T) tsv_to_excel_location="$OPTARG" ;;
+        X) tsv_to_excel_options="$OPTARG" ;;
         o) args["output_file"]="$OPTARG" ;;
         x)
             args["xlsx"]=true
@@ -166,13 +185,15 @@ done
 
 # Error checking for the configuration file sourcing.
 if [ ! -z "${args["config_file"]}" ]; then
-    # Once the config file has been sourced, override any settings with command line arguments:
-    for key in "${!args[@]}"; do
-        if [ ! -z "${args[$key]}" ]; then
-            declare $key="${args[$key]}"
-        fi
-    done
+    source "${args["config_file"]}"
 fi
+
+# Override any settings with command line arguments:
+for key in "${!args[@]}"; do
+    if [ ! -z "${args[$key]}" ]; then
+        declare $key="${args[$key]}"
+    fi
+done
 
 # After parsing the arguments, check if both -g and -G are provided or neither:
 if [ ! -z "$gene_name" ] && [ ! -z "$gene_file" ]; then
@@ -192,16 +213,6 @@ if [ "$use_replacement" == "true" ] && [ -z "$sample_file" ]; then
     sample_file=$(mktemp)
     echo "$sample_names" > "$sample_file"
 fi
-
-# Assign default values if not set
-reference="${reference:-"GRCh38.mane.1.0.refseq"}"
-add_chr="${add_chr:-true}"
-filters="${filters:-"(( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE'))"}"
-fields_to_extract="${fields_to_extract:-"CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC dbNSFP_clinvar_clnsig GEN[*].GT"}"
-sample_file="${sample_file:-samples.txt}"
-replace_script_location="${replace_script_location:-./replace_gt_with_sample.sh}"
-replace_script_options="${replace_script_options:-"--append-genotype"}"
-use_replacement="${use_replacement:-true}"
 
 # Check if the minimum number of arguments is provided
 if [ "$#" -lt 2 ]; then
@@ -255,12 +266,12 @@ echo "---------------------------------------------------------" >&2
 echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
 
 # Display version information of the scripts used
-echo "Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
-echo "Using:" $(./tsv_to_excel.R --version 2>&1 | head -n 1) >&2
+echo "  Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
+echo "  Using:" $(./tsv_to_excel.R --version 2>&1 | head -n 1) >&2
 
 # Display version information of the tools used
-echo "With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
-echo "With: bcftools version:" $(bcftools --version | head -n 1) >&2
+echo "  With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
+echo "  With: bcftools version:" $(bcftools --version | head -n 1) >&2
 
 echo "Initiating the variant filtering process..." >&2
 echo "Starting time: $(date)" >&2
@@ -316,7 +327,7 @@ if [ "${args["xlsx"]}" == "true" ]; then
         fi
     fi
     # Use the temporary file as input for the xlsx conversion
-    cmd_xlsx="./tsv_to_excel.R -i $temp_output_file -o $output_file"
+    cmd_xlsx="$tsv_to_excel_location -i $temp_output_file -o $output_file $tsv_to_excel_options"
     eval $cmd_xlsx
     rm -f $temp_output_file
 fi
@@ -325,6 +336,8 @@ fi
 # Use >&2 to redirect echo to stderr
 echo "---------------------------------------------------------" >&2
 echo "Variant filtering process completed successfully!" >&2
+echo "Filter command executed:" >&2
+echo "$cmd" >&2
 echo "Completion time: $(date)" >&2
 if [[ -n "$output_file" && "$output_file" != "stdout" ]]; then
     echo "Output saved to: $output_file" >&2
