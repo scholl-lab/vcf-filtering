@@ -78,6 +78,15 @@ output_file=""
 # Advanced usage with multiple options:
 # ./$SCRIPT_NAME -c config.cfg -G genes.txt -v my_vcf_file.vcf -r "GRCh38.mane.1.0.refseq" -o output.tsv
 
+# Define cleanup function
+cleanup() {
+    echo "Cleaning up temporary files..."
+    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$metadata_file"
+}
+
+# Set cleanup trap
+trap cleanup EXIT
+
 # Usage information
 print_usage() {
     echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering]"
@@ -303,7 +312,8 @@ echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
 
 # Display version information of the scripts used
 echo "  Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
-echo "  Using:" $(./tsv_to_excel.R --version 2>&1 | head -n 1) >&2
+echo "  Using:" $($tsv_to_excel_location --version 2>&1 | head -n 1) >&2
+echo "  Using:" $($phenotype_script_location --version 2>&1 | head -n 1) >&2
 
 # Display version information of the tools used
 echo "  With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
@@ -393,11 +403,6 @@ if [ "$use_phenotype_filtering" == "true" ]; then
     # Cleanup phenotype temporary file
     rm -f $phenotype_temp_file
 fi
-
-# Cleanup temporary files
-rm -f $temp_output_file
-rm -f $phenotype_temp_file
-rm -f $filtered_vcf_temp_file
 
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
