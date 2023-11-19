@@ -4,8 +4,8 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.2.0"
-SCRIPT_DATE="2023-11-16"
+SCRIPT_VERSION="0.2.1"
+SCRIPT_DATE="2023-11-19"
 
 # Documentation
 # -------------
@@ -89,12 +89,14 @@ for arg in "$@"; do
     "--sample-file") set -- "$@" "-s" ;;
     "--sample-list") set -- "$@" "-l" ;;
     "--column-name") set -- "$@" "-c" ;;
+    "--help") set -- "$@" "-h" ;;
+    "--version") set -- "$@" "-V" ;;
     *) set -- "$@" "$arg" ;;
   esac
 done
 
 # Process options
-while getopts ":f:o:d:s:l:c:" opt; do
+while getopts ":f:o:d:s:l:c:hV" opt; do
     case ${opt} in
         f ) INPUT_FILE="$OPTARG" ;;
         o ) OUTPUT_FILE="$OPTARG" ;;
@@ -108,6 +110,8 @@ while getopts ":f:o:d:s:l:c:" opt; do
         s ) SAMPLE_FILE="$OPTARG" ;;
         l ) SAMPLE_LIST="$OPTARG" ;;
         c ) COLUMN_NAME="$OPTARG" ;;
+        h ) print_help; exit 0 ;;
+        V ) echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"; exit 0 ;;
         \? ) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
     esac
 done
