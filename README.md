@@ -106,6 +106,6 @@ The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to re
 - [ ] add option to filter by position or for specific variants instead of gene name, for variants check the reference allele
 - [ ] update README and usage description with examples for all scripts
 - [ ] add documentation with examples for all scripts
-- [ ] add phenoytpes to the output using the phenotype file and the filter_pheotypes.sh script
+- [x] add phenoytpes to the output using the phenotype file and the filter_pheotypes.sh script
 - [ ] add a script to generate screenshots of the alignment of the variants in the IGV browser for validation of the filtering variants
 - [ ] add installation instructions for all required tools
