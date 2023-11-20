@@ -6,8 +6,8 @@
 # Date: 2023-11-16
 
 # Version Information
-SCRIPT_VERSION <- "0.4.0"
-SCRIPT_DATE <- "2023-11-16"
+SCRIPT_VERSION <- "0.5.0"
+SCRIPT_DATE <- "2023-11-20"
 
 # Load necessary libraries
 library(readr)
@@ -87,7 +87,7 @@ find_unique_sheet_name <- function(existing_sheets, base_name) {
 
 # Display version if the version flag is set
 if (display_version) {
-  cat(paste(script_name, "Version:", SCRIPT_VERSION, "-", SCRIPT_DATE, "\n"))
+  cat(paste0(script_name, " version ", SCRIPT_VERSION, ", ", SCRIPT_DATE, "\n"))
   quit(save = "no", status = 0)
 }
 
