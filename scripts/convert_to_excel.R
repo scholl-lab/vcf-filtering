@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# tsv_to_excel.R
+# convert_to_excel.R
 # This script reads a TSV formatted file (or input from stdin) and writes it to an Excel file.
 # Author: Bernt Popp
 # Date: 2023-11-16
@@ -17,21 +17,23 @@ library(openxlsx)
 # Function to display usage instructions
 usage <- function() {
   cat("Usage:\n")
-  cat(paste0("  ", script_name, " -i /path/to/input_file.tsv [-o /path/to/output_file.xlsx] [-s sheet_name] [-a append]\n"))
+  cat(paste0("  ", script_name, " -i /path/to/input_file [-o /path/to/output_file.xlsx] [-d delimiter] [-s sheet_name] [-a append]\n"))
+  cat("  Delimiter options: 'csv', 'tsv', ',', '\\t'. Defaults based on file extension or comma if unspecified.\n")
   cat("  Or, to read from stdin:\n")
-  cat(paste0("  cat /path/to/input_file.tsv | ", script_name, " -i - [-o /path/to/output_file.xlsx] [-s sheet_name] [-a append]\n"))
+  cat(paste0("  cat /path/to/input_file | ", script_name, " -i - [-o /path/to/output_file.xlsx] [-d delimiter] [-s sheet_name] [-a append]\n"))
   cat("Flags:\n")
   cat("  -h, --help: Display this help message\n")
   cat("  -v, --version: Display script version\n")
-  cat("  -i, --input: Specify the input TSV file or '-' for stdin\n")
+  cat("  -i, --input: Specify the input file or '-' for stdin\n")
   cat("  -o, --output: Specify the output Excel file (optional)\n")
+  cat("  -d, --delimiter: Specify the delimiter (optional)\n")
   cat("  -s, --sheet: Specify the sheet name in the Excel file (optional, defaults to 'data')\n")
   cat("  -a, --append: Append to an existing Excel file without overwriting (optional)\n")
 }
 
 # Logging function with levels
 log_message <- function(message, level = "INFO") {
-  cat(sprintf("[%s]: %s\n", level, message))
+  cat(sprintf("[%s] %s\n", level, message))
 }
 
 # Fetch command line arguments
@@ -49,6 +51,7 @@ if (length(script_file_arg) > 0) {
 input_file <- NULL
 output_file <- NULL
 sheet_name <- "data"
+input_delimiter <- NULL
 append_to_file <- FALSE
 display_help <- FALSE
 display_version <- FALSE
@@ -68,10 +71,55 @@ while (i <= length(script_args)) {
          '--output' = {i <- i + 1; output_file <- script_args[i]},
          '-s' = {i <- i + 1; sheet_name <- script_args[i]},
          '--sheet' = {i <- i + 1; sheet_name <- script_args[i]},
+         '-d' = {i <- i + 1; input_delimiter <- script_args[i]},
+         '--delimiter' = {i <- i + 1; input_delimiter <- script_args[i]},
          '-a' = {append_to_file <- TRUE},
          '--append' = {append_to_file <- TRUE}
   )
   i <- i + 1
+}
+
+# Function to determine delimiter based on file extension
+determine_delimiter <- function(file_name, specified_delimiter) {
+  if (!is.null(specified_delimiter)) {
+    return(specified_delimiter)
+  }
+  if (file_name == "-") {  # Handle stdin
+    log_message("Defaulting to tab as delimiter for stdin.", "INFO")
+    return("\t")
+  }
+  if (grepl("\\.csv$", file_name, ignore.case = TRUE)) {
+    return(",")
+  } else if (grepl("\\.tsv$", file_name, ignore.case = TRUE)) {
+    return("\t")
+  } else {
+    log_message("Warning: Unable to determine the file format based on extension. Defaulting to tab as delimiter.", "WARNING")
+    return("\t")
+  }
+}
+
+# Function to validate the specified delimiter
+validate_delimiter <- function(delimiter) {
+  valid_delimiters <- c(",", "\t", "csv", "tsv")
+  if (!delimiter %in% valid_delimiters) {
+    stop(paste("Error: Invalid delimiter specified. Valid options are", paste(valid_delimiters, collapse = ", "), "."))
+  }
+  if (delimiter == "csv") {
+    return(",")
+  } else if (delimiter == "tsv") {
+    return("\t")
+  }
+  return(delimiter)
+}
+
+delimiter_to_word <- function(delimiter) {
+  if (delimiter == ",") {
+    return("comma")
+  } else if (delimiter == "\t") {
+    return("tab")
+  } else {
+    return("custom")
+  }
 }
 
 # Function to find a unique sheet name
@@ -109,6 +157,13 @@ if (!is.null(output_file) && file.exists(output_file) && !file.access(output_fil
   quit(save = "no", status = 1)
 }
 
+# Determine the input delimiter
+input_delimiter <- determine_delimiter(input_file, input_delimiter)
+input_delimiter <- validate_delimiter(input_delimiter)
+
+# log the delimiter
+log_message(paste("Using delimiter:", delimiter_to_word(input_delimiter)))
+
 # Decide source of data: stdin or a file
 if (input_file == "-") {
   # Read from stdin
@@ -121,7 +176,7 @@ if (input_file == "-") {
 
   # Read the data
   log_message("Reading data from stdin...")
-  data <- read_tsv(con, col_types = cols())
+  data <- read_delim(con, delim = input_delimiter, col_types = cols())
 
   # Set output file name. If provided, use that. Otherwise, default to "output.xlsx"
   output_file <- ifelse(!is.null(output_file), output_file, "output.xlsx")
@@ -132,7 +187,7 @@ if (input_file == "-") {
   }
   # Read from the given file path
   log_message(paste("Reading data from", input_file, "..."))
-  data <- read_tsv(input_file, col_types = cols())
+  data <- read_delim(input_file, delim = input_delimiter, col_types = cols())
   # Set output file name. If provided, use that. Otherwise, derive from input file name
   output_file <- ifelse(!is.null(output_file), output_file, gsub("\\.tsv$", ".xlsx", input_file))
 }

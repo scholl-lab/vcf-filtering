@@ -15,8 +15,8 @@ fields_to_extract="CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN
 sample_file="samples.txt"
 replace_script_location="./replace_gt_with_sample.sh"
 replace_script_options=""
-tsv_to_excel_location="./tsv_to_excel.R"            # Default excel conversion script location
-tsv_to_excel_options=""                             # Default is empty, meaning no extra options
+convert_to_excel_location="./convert_to_excel.R"            # Default excel conversion script location
+convert_to_excel_options=""                             # Default is empty, meaning no extra options
 phenotype_script_location="./filter_phenotypes.sh"  # Default location
 phenotype_script_options=""                         # Default options
 use_phenotype_filtering=false                       # Default is false
@@ -62,8 +62,8 @@ output_file=""
 #    -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
 #    -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
 #    -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
-#    -T, --tsv-to-excel-location loc:    (Optional, default: "./tsv_to_excel.R") The path to the tsv_to_excel.R script.
-#    -X, --tsv-to-excel-options opts     (Optional) Additional options for the tsv_to_excel.R script.
+#    -T, --tsv-to-excel-location loc:    (Optional, default: "./convert_to_excel.R") The path to the convert_to_excel.R script.
+#    -X, --tsv-to-excel-options opts     (Optional) Additional options for the convert_to_excel.R script.
 #    -b, --phenotype-script-location loc:   (Optional, default: "./filter_phenotypes.sh") The path to the filter_phenotypes.sh script.
 #    -j, --phenotype-script-options opts:   (Optional) Additional options for the filter_phenotypes.sh script.
 #    -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
@@ -110,8 +110,8 @@ Parameters:
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
-    -T, --tsv-to-excel-location loc:    (Optional, default: "./tsv_to_excel.R") The path to the tsv_to_excel.R script.
-    -X, --tsv-to-excel-options opts:    (Optional) Additional options for the tsv_to_excel.R script.
+    -T, --tsv-to-excel-location loc:    (Optional, default: "./convert_to_excel.R") The path to the convert_to_excel.R script.
+    -X, --tsv-to-excel-options opts:    (Optional) Additional options for the convert_to_excel.R script.
     -b, --phenotype-script-location loc:   (Optional, default: "./filter_phenotypes.sh") The path to the filter_phenotypes.sh script.
     -j, --phenotype-script-options opts:   (Optional) Additional options for the filter_phenotypes.sh script.
     -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
@@ -181,8 +181,8 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:hV" opt; do
         l) args["replace_script_location"]="$OPTARG" ;;
         R) args["use_replacement"]="$OPTARG" ;;
         P) args["replace_script_options"]="$OPTARG" ;;
-        T) args["tsv_to_excel_location"]="$OPTARG" ;;
-        X) args["tsv_to_excel_options"]="$OPTARG" ;;
+        T) args["convert_to_excel_location"]="$OPTARG" ;;
+        X) args["convert_to_excel_options"]="$OPTARG" ;;
         b) args["phenotype_script_location"]="$OPTARG" ;;
         j) args["phenotype_script_options"]="$OPTARG" ;;
         k) args["use_phenotype_filtering"]="$OPTARG" ;;
@@ -312,7 +312,7 @@ echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
 
 # Display version information of the scripts used
 echo "  Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
-echo "  Using:" $($tsv_to_excel_location --version 2>&1 | head -n 1) >&2
+echo "  Using:" $($convert_to_excel_location --version 2>&1 | head -n 1) >&2
 echo "  Using:" $($phenotype_script_location --version 2>&1 | head -n 1) >&2
 
 # Display version information of the tools used
@@ -386,18 +386,18 @@ fi
 # After the main processing, add the metadata to the Excel file
 if [ "${args["xlsx"]}" == "true" ]; then
     # Convert the main output to Excel
-    cmd_xlsx="$tsv_to_excel_location -i $temp_output_file -o $output_file -s 'Results' $tsv_to_excel_options"
+    cmd_xlsx="$convert_to_excel_location -i $temp_output_file -o $output_file -s 'Results' $convert_to_excel_options"
     eval $cmd_xlsx
 
     # Add metadata to the Excel file in a new sheet
-    cmd_xlsx_meta="$tsv_to_excel_location -i $metadata_file -o $output_file -s 'Metadata' -a"
+    cmd_xlsx_meta="$convert_to_excel_location -i $metadata_file -o $output_file -s 'Metadata' -a"
     eval $cmd_xlsx_meta
 fi
 
 # After adding metadata to Excel file (if requested), add phenotype data to the Excel file (if requested)
 if [ "$use_phenotype_filtering" == "true" ]; then
     # Add phenotype data to the Excel file in a new sheet
-    cmd_xlsx_phenotype="$tsv_to_excel_location -i $phenotype_temp_file -o $output_file -s 'Phenotypes' -a"
+    cmd_xlsx_phenotype="$convert_to_excel_location -i $phenotype_temp_file -o $output_file -s 'Phenotypes' -a"
     eval $cmd_xlsx_phenotype
 
     # Cleanup phenotype temporary file
