@@ -348,7 +348,7 @@ fi
 filtered_vcf_temp_file=$(mktemp)
 
 # Construct the command pipeline
-cmd="snpEff genes2bed $reference $gene_name | sortBed"
+cmd="snpEff -Xmx8g genes2bed $reference $gene_name | sortBed"
 if [ "$add_chr" == "true" ]; then
     cmd="$cmd | awk '{print \"chr\"\$0}'"
 fi
