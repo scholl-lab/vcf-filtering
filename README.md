@@ -18,16 +18,7 @@ The `filter_variants.sh` script performs the following steps:
 
 Example of the shell pipeline the script is composing:
 ```sh
-snpEff genes2bed GRCh38.mane.1.0.refseq OFD1 | sortBed | awk '{print "chr"$0}' | bcftools view ann.dbnsfp.vcf.gz -R - \
-| SnpSift -Xmx8g filter \
-" (( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & \
-((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE')) " \
-| SnpSift -Xmx4g extractFields -s "," -e "NA" - \
-CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P \
-dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC \
-GEN[*].GT \
-| sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' \
-| ./replace_gt_with_sample.sh samples.txt 21 > OFD1_rare_variants.GCKD.tsv
+snpEff genes2bed GRCh38.mane.1.0.refseq OFD1 | sortBed | awk '{print "chr"$0}' | bcftools view ann.dbnsfp.vcf.gz -R - | SnpSift -Xmx8g filter " (( dbNSFP_gnomAD_exomes_AC[0] <= 2 ) | ( na dbNSFP_gnomAD_exomes_AC[0] )) & ((ANN[ANY].IMPACT has 'HIGH') | (ANN[ANY].IMPACT has 'MODERATE')) " | SnpSift -Xmx4g extractFields -s "," -e "NA" - CHROM POS REF ALT ID QUAL AC ANN[0].GENE ANN[0].FEATUREID ANN[0].EFFECT ANN[0].IMPACT ANN[0].HGVS_C ANN[0].HGVS_P dbNSFP_SIFT_pred dbNSFP_Polyphen2_HDIV_pred dbNSFP_MutationTaster_pred dbNSFP_CADD_phred dbNSFP_gnomAD_exomes_AC dbNSFP_gnomAD_genomes_AC dbNSFP_ALFA_Total_AC GEN[*].GT | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | ./replace_gt_with_sample.sh samples.txt 21 > OFD1_rare_variants.GCKD.tsv
 ```
 
 ## Usage of filter_variants.sh
@@ -71,25 +62,8 @@ output_file=variants.tsv
 To generate the sample file from a multi-sample VCF, you can use the following command:
 
 ```sh
-bcftools view -h /path/to/your_multi_sample.vcf.gz | awk -F'\t' '{ for (i=10; i<=NF; ++i) printf "%s%s", $i, (i==NF ? RS : ",") }' > /path/to/samplefile.txt
+bcftools view -h /path/to/your_multi_sample.vcf.gz | awk -F'	' '{ for (i=10; i<=NF; ++i) printf "%s%s", $i, (i==NF ? RS : ",") }' > /path/to/samplefile.txt
 ```
-
-## Helper Script: Replace Genotype with Sample
-
-### Overview
-
-The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to replace non-"0/0" genotype values in a specified field with corresponding sample names from a given sample file, and remove "0/0" values.
-
-### Usage
-
-```sh
-./replace_gt_with_sample.sh <sample_file> <GT_field_number>
-```
-
-### Parameters
-
-- `sample_file`: The path to the file containing the sample values to use for replacement.
-- `GT_field_number`: The number of the field (column) in the input stream representing the genotype values.
 
 ## Requirements
 
@@ -98,14 +72,3 @@ The `replace_gt_with_sample.sh` script is utilized by `filter_variants.sh` to re
 - bcftools 1.17
 - snpEff version SnpEff 5.1d (build 2022-04-19 15:49)
 - SnpSift version 5.1d (build 2022-04-19 15:50)
-
-# TODO
-- [x] help message should be printed first if no arguments are provided
-- [x] command line arguments should always override config file values
-- [x] write a script to convert the tsv file to an Excel file
-- [ ] add option to filter by position or for specific variants instead of gene name, for variants check the reference allele
-- [ ] update README and usage description with examples for all scripts
-- [ ] add documentation with examples for all scripts
-- [x] add phenoytpes to the output using the phenotype file and the filter_pheotypes.sh script
-- [ ] add a script to generate screenshots of the alignment of the variants in the IGV browser for validation of the filtering variants
-- [ ] add installation instructions for all required tools
