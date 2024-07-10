@@ -1,4 +1,5 @@
 #!/bin/bash
+## filter_variants.sh
 
 # Define a variable for the script's name
 SCRIPT_NAME=$(basename "$0")

@@ -1,4 +1,5 @@
 #!/bin/bash
+## replace_gt_with_sample.sh
 
 # Define a variable for the script's name
 SCRIPT_NAME=$(basename "$0")
