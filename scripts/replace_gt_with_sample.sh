@@ -5,7 +5,7 @@
 SCRIPT_NAME="replace_gt_with_sample.sh"
 
 # Version information
-SCRIPT_VERSION="0.7.0"
+SCRIPT_VERSION="0.7.1"
 SCRIPT_DATE="2024-07-10"
 
 # Default values
@@ -36,7 +36,8 @@ COUNT_GENOTYPES=1  # Default to add count columns
 #    -a, --append-genotype: (Optional) Append the genotype to the sample ID.
 #    -s, --sample-file: (Optional) File with sample IDs, one per line.
 #    -g, --gt-field-number: Field number for the genotype.
-#    -l, --sample-list: (Optional) Comma-separated list of sample IDs.
+#    -l, --sample-list: (Optional) Comma-separated list of sample IDs. This serves as an alternative input for the sample IDs, 
+#                       replacing the need for a sample file. If both are provided, the sample list will be used.
 #    -m, --list-samples: (Optional) Output a comma-separated list of unique samples with non-"0/0" genotypes.
 #    -n, --include-nocalls: (Optional) Include no-call genotypes (./.) in proband_count.
 #    -c, --count-genotypes: (Optional) Add proband_count, proband_variant_count, and proband_allele_count columns.
@@ -69,7 +70,8 @@ Options:
     -a, --append-genotype: (Optional) Append the genotype to the sample ID.
     -s, --sample-file: (Optional) File with sample IDs, one per line.
     -g, --gt-field-number: Field number for the genotype.
-    -l, --sample-list: (Optional) Comma-separated list of sample IDs.
+    -l, --sample-list: (Optional) Comma-separated list of sample IDs. This serves as an alternative input for the sample IDs, 
+                       replacing the need for a sample file. If both are provided, the sample list will be used.
     -m, --list-samples: (Optional) Output a comma-separated list of unique samples with non-"0/0" genotypes.
     -n, --include-nocalls: (Optional) Include no-call genotypes (./.) in proband_count.
     -c, --count-genotypes: (Optional) Add proband_count, proband_variant_count, and proband_allele_count columns.
