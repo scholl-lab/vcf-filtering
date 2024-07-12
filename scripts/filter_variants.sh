@@ -5,8 +5,8 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.14.0"
-SCRIPT_DATE="2023-11-18"
+SCRIPT_VERSION="0.15.0"
+SCRIPT_DATE="2024-07-12"
 
 # Default values
 reference="GRCh38.mane.1.0.refseq"
@@ -82,7 +82,7 @@ output_file=""
 # Define cleanup function
 cleanup() {
     echo "Cleaning up temporary files..."
-    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$metadata_file"
+    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$metadata_file" "$gene_bed_file"
 }
 
 # Set cleanup trap
@@ -112,7 +112,7 @@ Parameters:
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
     -T, --tsv-to-excel-location loc:    (Optional, default: "./convert_to_excel.R") The path to the convert_to_excel.R script.
-    -X, --tsv-to-excel-options opts:    (Optional) Additional options for the convert_to_excel.R script.
+    -X, --tsv-to-excel-options opts     (Optional) Additional options for the convert_to_excel.R script.
     -b, --phenotype-script-location loc:   (Optional, default: "./filter_phenotypes.sh") The path to the filter_phenotypes.sh script.
     -j, --phenotype-script-options opts:   (Optional) Additional options for the filter_phenotypes.sh script.
     -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
@@ -254,7 +254,6 @@ if [ ! -z "$gene_file" ]; then
         exit 1
     fi
     # Handle both Unix and Windows newlines
-    # based on https://stackoverflow.com/questions/1251999/how-can-i-replace-each-newline-n-with-a-space-using-sed
     gene_name=$(sed -e ':a' -e 'N' -e '$!ba' -e 's/[\n|\r]/ /g' "$gene_file" | sed 's/ $//')
 fi
 
@@ -348,13 +347,41 @@ fi
 # Create a temporary file for the filtered VCF output before genotype replacement
 filtered_vcf_temp_file=$(mktemp)
 
-# Construct the command pipeline
-cmd="snpEff -Xmx8g genes2bed $reference $gene_name | sortBed"
-if [ "$add_chr" == "true" ]; then
-    cmd="$cmd | awk '{print \"chr\"\$0}'"
+# Create a temporary file for the BED output
+gene_bed_file=$(mktemp)
+
+# Generate BED file and check for gene presence
+snpEff -Xmx8g genes2bed $reference $gene_name > $gene_bed_file
+
+# Extract found genes from the BED file
+found_genes=$(awk -F'\t' '{print $NF}' $gene_bed_file | cut -d';' -f1 | sort | uniq)
+
+# Convert gene_name to array
+IFS=' ' read -r -a gene_name_array <<< "$gene_name"
+
+# Check for missing genes
+missing_genes=()
+for gene in "${gene_name_array[@]}"; do
+    if ! grep -q -w "$gene" <<< "$found_genes"; then
+        missing_genes+=("$gene")
+    fi
+done
+
+# Log missing genes and exit if any are not found
+if [ ${#missing_genes[@]} -ne 0 ]; then
+    echo "Error: The following gene(s) were not found in the reference: ${missing_genes[*]}" >&2
+    exit 1
 fi
 
-cmd="$cmd | bcftools view \"$vcf_file_location\" -R - | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_temp_file"
+# Sort the BED file if add_chr is true
+if [ "$add_chr" == "true" ]; then
+    sortBed < $gene_bed_file | awk '{print "chr"$0}' > $gene_bed_file.sorted
+else
+    sortBed < $gene_bed_file > $gene_bed_file.sorted
+fi
+
+# Construct the command pipeline
+cmd="bcftools view \"$vcf_file_location\" -R $gene_bed_file.sorted | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_temp_file"
 
 if [ "$use_replacement" == "true" ]; then
     cmd="$cmd | $replace_script_location $replace_script_options -s $sample_file -g $GT_field_number"
