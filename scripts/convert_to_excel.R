@@ -6,8 +6,8 @@
 # Date: 2023-11-16
 
 # Version Information
-SCRIPT_VERSION <- "0.5.0"
-SCRIPT_DATE <- "2023-11-20"
+SCRIPT_VERSION <- "0.6.0"
+SCRIPT_DATE <- "2024-07-12"
 
 # Load necessary libraries
 library(readr)
@@ -216,5 +216,11 @@ if (append_to_file && file.exists(output_file)) {
   write_xlsx(output_list, output_file)
   log_message(paste("Written data to", output_file, "in sheet", sheet_name))
 }
+
+# Log versions of R and packages
+log_message(paste("R version:", R.version.string))
+log_message(paste("readr:", as.character(packageVersion("readr"))))
+log_message(paste("writexl:", as.character(packageVersion("writexl"))))
+log_message(paste("openxlsx:", as.character(packageVersion("openxlsx"))))
 
 quit(save = "no", status = 0)

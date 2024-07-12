@@ -5,7 +5,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.15.0"
+SCRIPT_VERSION="0.16.0"
 SCRIPT_DATE="2024-07-12"
 
 # Default values
@@ -72,7 +72,7 @@ output_file=""
 #    -x, --xlsx:                         (Optional) Convert the output to xlsx format.
 #    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
-#
+
 # Example:
 # Basic usage:
 # ./$SCRIPT_NAME -g BICC1 -v my_vcf_file.vcf
@@ -296,14 +296,17 @@ add_metadata() {
 
 # Adding metadata
 add_metadata "Script Name: $SCRIPT_NAME"
-add_metadata "Version: $SCRIPT_VERSION"
-add_metadata "Date: $SCRIPT_DATE"
+add_metadata "Script Version: $SCRIPT_VERSION"
+add_metadata "Script Date: $SCRIPT_DATE"
 add_metadata "Gene Name: $gene_name"
 add_metadata "VCF File Location: $vcf_file_location"
 add_metadata "Reference: $reference"
 add_metadata "Add Chr: $add_chr"
 add_metadata "Filters: $filters"
 add_metadata "Fields to Extract: $fields_to_extract"
+add_metadata "Starting time: $(date)"
+add_metadata "Target gene(s): $gene_name"
+add_metadata "VCF source: $vcf_file_location"
 
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
@@ -318,6 +321,21 @@ echo "  Using:" $($phenotype_script_location --version 2>&1 | head -n 1) >&2
 # Display version information of the tools used
 echo "  With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
 echo "  With: bcftools version:" $(bcftools --version | head -n 1) >&2
+echo "  With: awk version:" $(awk --version | head -n 1) >&2
+echo "  With: sed version:" $(sed --version | head -n 1) >&2
+echo "  With: tee version:" $(tee --version | head -n 1) >&2
+echo "  With: bash version:" $(bash --version | head -n 1) >&2
+
+# Adding version information to metadata
+add_metadata "replace_gt_with_sample.sh: $($replace_script_location --version 2>&1 | head -n 1)"
+add_metadata "convert_to_excel.R: $($convert_to_excel_location --version 2>&1 | head -n 1)"
+add_metadata "filter_phenotypes.sh: $($phenotype_script_location --version 2>&1 | head -n 1)"
+add_metadata "snpEff: $(snpEff -version 2>&1 | head -n 1)"
+add_metadata "bcftools: $(bcftools --version | head -n 1)"
+add_metadata "awk: $(awk --version | head -n 1)"
+add_metadata "sed: $(sed --version | head -n 1)"
+add_metadata "tee: $(tee --version | head -n 1)"
+add_metadata "bash: $(bash --version | head -n 1)"
 
 echo "Initiating the variant filtering process..." >&2
 echo "Starting time: $(date)" >&2
@@ -443,3 +461,4 @@ if [[ -n "$output_file" && "$output_file" != "stdout" ]]; then
     echo "Output saved to: $output_file" >&2
 fi
 echo "---------------------------------------------------------" >&2
+
