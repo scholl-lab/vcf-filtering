@@ -5,8 +5,8 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.16.0"
-SCRIPT_DATE="2024-07-12"
+SCRIPT_VERSION="0.17.0"
+SCRIPT_DATE="2024-07-13"
 
 # Default values
 reference="GRCh38.mane.1.0.refseq"
