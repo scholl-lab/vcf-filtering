@@ -5,7 +5,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.19.0"
+SCRIPT_VERSION="0.20.0"
 SCRIPT_DATE="2024-07-13"
 
 # Default values
