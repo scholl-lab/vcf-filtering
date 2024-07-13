@@ -5,7 +5,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.18.0"
+SCRIPT_VERSION="0.19.0"
 SCRIPT_DATE="2024-07-13"
 
 # Default values
@@ -25,6 +25,7 @@ use_replacement=true
 output_file=""
 use_temp_bed_files=true                            # Default is true
 temp_bed_dir="./temp_bed_files"                    # Default temporary directory for BED files
+interval_expand=0                                  # Default expansion interval for gene regions
 
 # Documentation
 # -------------
@@ -50,7 +51,7 @@ temp_bed_dir="./temp_bed_files"                    # Default temporary directory
 #    - SnpSift version 5.1d (build 2022-04-19 15:50)
 #
 # Usage:
-# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files]
+# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files] [-d interval_expand]
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
@@ -74,6 +75,7 @@ temp_bed_dir="./temp_bed_files"                    # Default temporary directory
 #    -x, --xlsx:                         (Optional) Convert the output to xlsx format.
 #    -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
 #    -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
+#    -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
 #    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
 
@@ -95,7 +97,7 @@ trap cleanup EXIT
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand]"
     echo "Use -h for more information."
 }
 
@@ -104,6 +106,15 @@ print_help() {
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
 
 Parameters:
+    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
+    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+    -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
+    -v, --vcf_file_location location:   The location of the VCF file.
+    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
+    -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
+    -f, --filters filters:              (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
+    -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
+    -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
@@ -116,6 +127,7 @@ Parameters:
     -x, --xlsx:                         (Optional) Convert the output to xlsx format.
     -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
     -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
+    -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
     -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
@@ -160,6 +172,7 @@ for arg in "$@"; do
     "--xlsx") set -- "$@" "-x" ;;
     "--use-temp-bed-files") set -- "$@" "-U" ;;
     "--temp-bed-dir") set -- "$@" "-T" ;;
+    "--interval-expand") set -- "$@" "-d" ;;
     *) set -- "$@" "$arg"
   esac
 done
@@ -168,7 +181,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -193,6 +206,7 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:hV" opt; do
             ;;
         U) args["use_temp_bed_files"]="$OPTARG" ;;
         T) args["temp_bed_dir"]="$OPTARG" ;;
+        d) args["interval_expand"]="$OPTARG" ;;
         h) 
             print_help
             exit 0
@@ -410,13 +424,13 @@ filtered_vcf_extracted_fields_temp_file=$(mktemp)
 # Create the temporary BED directory if it doesn't exist
 mkdir -p "$temp_bed_dir"
 
-# Generate a unique hash for the BED file based on the gene names
-bed_file_hash=$(echo -n "$gene_name" | md5sum | cut -d' ' -f1)
+# Generate a unique hash for the BED file based on the gene names and interval_expand value
+bed_file_hash=$(echo -n "$gene_name-$interval_expand" | md5sum | cut -d' ' -f1)
 gene_bed_file="$temp_bed_dir/$bed_file_hash.bed"
 
 # Generate BED file and check for gene presence if not already existing
 if [ ! -f "$gene_bed_file" ]; then
-    snpEff -Xmx8g genes2bed $reference $gene_name > "$gene_bed_file"
+    snpEff -Xmx8g genes2bed $reference $gene_name -ud $interval_expand > "$gene_bed_file"
 fi
 
 # Extract found genes from the BED file
