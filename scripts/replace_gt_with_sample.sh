@@ -5,8 +5,8 @@
 SCRIPT_NAME="replace_gt_with_sample.sh"
 
 # Version information
-SCRIPT_VERSION="0.8.0"
-SCRIPT_DATE="2024-07-12"
+SCRIPT_VERSION="0.9.0"
+SCRIPT_DATE="2024-07-13"
 
 # Default values
 APPEND_GENOTYPE=0
@@ -239,6 +239,12 @@ BEGIN {
         
         # Replace | with / in the genotype to handle phased genotypes
         gsub(/\|/, "/", genotypes[i]);
+
+        # Detect non-1 GT fields and replace with 1
+        if (genotypes[i] ~ /2|3|4|5|6|7|8|9/) {
+            genotypes[i] = gensub(/2|3|4|5|6|7|8|9/, "1", "g", genotypes[i]);
+            print "Warning: Non-1 GT field detected and replaced with 1 in sample " sample " for genotype " genotypes[i] > "/dev/stderr";
+        }
 
         if (genotypes[i] != "0/0" || (INCLUDE_NOCALLS && genotypes[i] == "./.")) {
             if (genotypes[i] != "./.") {
