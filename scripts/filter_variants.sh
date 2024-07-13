@@ -5,7 +5,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.17.0"
+SCRIPT_VERSION="0.18.0"
 SCRIPT_DATE="2024-07-13"
 
 # Default values
@@ -23,6 +23,8 @@ phenotype_script_options=""                         # Default options
 use_phenotype_filtering=false                       # Default is false
 use_replacement=true
 output_file=""
+use_temp_bed_files=true                            # Default is true
+temp_bed_dir="./temp_bed_files"                    # Default temporary directory for BED files
 
 # Documentation
 # -------------
@@ -48,7 +50,7 @@ output_file=""
 #    - SnpSift version 5.1d (build 2022-04-19 15:50)
 #
 # Usage:
-# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file]
+# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files]
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
@@ -70,6 +72,8 @@ output_file=""
 #    -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
 #    -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
 #    -x, --xlsx:                         (Optional) Convert the output to xlsx format.
+#    -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
+#    -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
 #    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
 
@@ -82,7 +86,7 @@ output_file=""
 # Define cleanup function
 cleanup() {
     echo "Cleaning up temporary files..."
-    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$filtered_vcf_extracted_fields_temp_file" "$metadata_file" "$gene_bed_file"
+    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$filtered_vcf_extracted_fields_temp_file" "$metadata_file"
     echo "Cleanup complete." >&2
 }
 
@@ -91,7 +95,7 @@ trap cleanup EXIT
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir]"
     echo "Use -h for more information."
 }
 
@@ -100,15 +104,6 @@ print_help() {
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
 
 Parameters:
-    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
-    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
-    -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
-    -v, --vcf_file_location location:   The location of the VCF file.
-    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
-    -a, --add_chr true/false:           (Optional, default: true) Whether or not to add "chr" to the chromosome name.
-    -f, --filters filters:              (Optional, default: Filters for rare and moderate/high impact variants) The filters to apply.
-    -e, --fields_to_extract fields:     (Optional, default: Various fields including gene info, predictions, allele counts) The fields to extract.
-    -s, --sample_file file:             (Optional, default: "samples.txt") The path to the file containing the sample values to use for replacement.
     -l, --replace_script_location loc:  (Optional, default: "./replace_gt_with_sample.sh") The location of the replace_gt_with_sample.sh script.
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
@@ -119,6 +114,8 @@ Parameters:
     -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
     -o, --output_file name:             (Optional, default: stdout if not set) The name of the output file.
     -x, --xlsx:                         (Optional) Convert the output to xlsx format.
+    -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
+    -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
     -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
@@ -161,6 +158,8 @@ for arg in "$@"; do
     "--use-phenotype-filtering") set -- "$@" "-k" ;;
     "--output_file") set -- "$@" "-o" ;;
     "--xlsx") set -- "$@" "-x" ;;
+    "--use-temp-bed-files") set -- "$@" "-U" ;;
+    "--temp-bed-dir") set -- "$@" "-T" ;;
     *) set -- "$@" "$arg"
   esac
 done
@@ -192,6 +191,8 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:hV" opt; do
         x)
             args["xlsx"]=true
             ;;
+        U) args["use_temp_bed_files"]="$OPTARG" ;;
+        T) args["temp_bed_dir"]="$OPTARG" ;;
         h) 
             print_help
             exit 0
@@ -324,7 +325,6 @@ validate_filtered_vcf() {
     done < "$vcf_file"
 }
 
-
 # Create a temporary file for metadata
 metadata_file=$(mktemp)
 
@@ -407,14 +407,20 @@ filtered_vcf_temp_file=$(mktemp)
 # Create a temporary file for the filtered VCF and extracted output before genotype replacement
 filtered_vcf_extracted_fields_temp_file=$(mktemp)
 
-# Create a temporary file for the BED output
-gene_bed_file=$(mktemp)
+# Create the temporary BED directory if it doesn't exist
+mkdir -p "$temp_bed_dir"
 
-# Generate BED file and check for gene presence
-snpEff -Xmx8g genes2bed $reference $gene_name > $gene_bed_file
+# Generate a unique hash for the BED file based on the gene names
+bed_file_hash=$(echo -n "$gene_name" | md5sum | cut -d' ' -f1)
+gene_bed_file="$temp_bed_dir/$bed_file_hash.bed"
+
+# Generate BED file and check for gene presence if not already existing
+if [ ! -f "$gene_bed_file" ]; then
+    snpEff -Xmx8g genes2bed $reference $gene_name > "$gene_bed_file"
+fi
 
 # Extract found genes from the BED file
-found_genes=$(awk -F'\t' '{print $NF}' $gene_bed_file | cut -d';' -f1 | sort | uniq)
+found_genes=$(awk -F'\t' '{print $NF}' "$gene_bed_file" | cut -d';' -f1 | sort | uniq)
 
 # Convert gene_name to array
 IFS=' ' read -r -a gene_name_array <<< "$gene_name"
@@ -435,9 +441,9 @@ fi
 
 # Sort the BED file if add_chr is true
 if [ "$add_chr" == "true" ]; then
-    sortBed < $gene_bed_file | awk '{print "chr"$0}' > $gene_bed_file.sorted
+    sortBed < "$gene_bed_file" | awk '{print "chr"$0}' > "$gene_bed_file.sorted"
 else
-    sortBed < $gene_bed_file > $gene_bed_file.sorted
+    sortBed < "$gene_bed_file" > "$gene_bed_file.sorted"
 fi
 
 # Construct the command pipeline
@@ -506,4 +512,3 @@ if [[ -n "$output_file" && "$output_file" != "stdout" ]]; then
     echo "Output saved to: $output_file" >&2
 fi
 echo "---------------------------------------------------------" >&2
-
