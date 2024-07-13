@@ -5,8 +5,12 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.20.0"
+SCRIPT_VERSION="0.21.0"
 SCRIPT_DATE="2024-07-13"
+SCRIPT_AUTHOR="Bernt Popp, Berlin Institute of Health at Charité, Universitätsmedizin Berlin, Center of Functional Genomics, Berlin, Germany"
+SCRIPT_EMAIL="bernt.popp.md@gmail.com"
+SCRIPT_REPOSITORY="https://github.com/scholl-lab/vcf-filtering"
+SCRIPT_DOCUMENTATION="https://github.com/scholl-lab/vcf-filtering"
 
 # Default values
 reference="GRCh38.mane.1.0.refseq"
@@ -17,15 +21,15 @@ sample_file="samples.txt"
 replace_script_location="./replace_gt_with_sample.sh"
 replace_script_options=""
 convert_to_excel_location="./convert_to_excel.R"            # Default excel conversion script location
-convert_to_excel_options=""                             # Default is empty, meaning no extra options
-phenotype_script_location="./filter_phenotypes.sh"  # Default location
-phenotype_script_options=""                         # Default options
-use_phenotype_filtering=false                       # Default is false
-use_replacement=true
-output_file=""
-use_temp_bed_files=true                            # Default is true
-temp_bed_dir="./temp_bed_files"                    # Default temporary directory for BED files
-interval_expand=0                                  # Default expansion interval for gene regions
+convert_to_excel_options=""                                 # Default is empty, meaning no extra options
+phenotype_script_location="./filter_phenotypes.sh"          # Default location
+phenotype_script_options=""                                 # Default options
+use_phenotype_filtering=false                               # Default is false
+use_replacement=true                                        # Default is true
+output_file=""                                              # Default is stdout
+use_temp_bed_files=true                                     # Default is true
+temp_bed_dir="./temp_bed_files"                             # Default temporary directory for BED files
+interval_expand=0                                           # Default expansion interval for gene regions
 
 # Documentation
 # -------------
@@ -87,9 +91,11 @@ interval_expand=0                                  # Default expansion interval 
 
 # Define cleanup function
 cleanup() {
-    echo "Cleaning up temporary files..."
-    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$filtered_vcf_extracted_fields_temp_file" "$metadata_file"
-    echo "Cleanup complete." >&2
+    if [ "$PRINT_VERSION" != true ] && [ "$PRINT_HELP" != true ]; then
+        echo "Cleaning up temporary files..."
+        rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$filtered_vcf_extracted_fields_temp_file" "$metadata_file"
+        echo "Cleanup complete." >&2
+    fi
 }
 
 # Set cleanup trap
@@ -105,7 +111,6 @@ print_help() {
     cat << EOF
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
 
-Parameters:
     -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
     -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
     -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
@@ -119,7 +124,7 @@ Parameters:
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
     -T, --tsv-to-excel-location loc:    (Optional, default: "./convert_to_excel.R") The path to the convert_to_excel.R script.
-    -X, --tsv-to-excel-options opts     (Optional) Additional options for the convert_to_excel.R script.
+    -X, --tsv-to-excel-options opts:    (Optional) Additional options for the convert_to_excel.R script.
     -b, --phenotype-script-location loc:   (Optional, default: "./filter_phenotypes.sh") The path to the filter_phenotypes.sh script.
     -j, --phenotype-script-options opts:   (Optional) Additional options for the filter_phenotypes.sh script.
     -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
@@ -208,11 +213,17 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:hV" opt; do
         T) args["temp_bed_dir"]="$OPTARG" ;;
         d) args["interval_expand"]="$OPTARG" ;;
         h) 
+            PRINT_HELP=true
             print_help
             exit 0
             ;;
         V)
-            echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE";
+            PRINT_VERSION=true
+            echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"
+            echo "$SCRIPT_AUTHOR"
+            echo "For more information, visit $SCRIPT_REPOSITORY"
+            echo "Documentation: $SCRIPT_DOCUMENTATION"
+            echo "Help email: $SCRIPT_EMAIL"
             exit 0
             ;;
         \?)
@@ -274,7 +285,7 @@ if [ ! -z "$gene_file" ]; then
 fi
 
 # If a gene name is provided, replace commas in gene_name with spaces
-if [ ! -z "$gene_name" ]; then
+if [ ! -z "$gene_name" ];then
     gene_name=$(echo "$gene_name" | tr ',' ' ')
 fi
 
@@ -351,6 +362,10 @@ add_metadata() {
 add_metadata "Script Name: $SCRIPT_NAME"
 add_metadata "Script Version: $SCRIPT_VERSION"
 add_metadata "Script Date: $SCRIPT_DATE"
+add_metadata "Script Author: $SCRIPT_AUTHOR"
+add_metadata "Script Email: $SCRIPT_EMAIL"
+add_metadata "Script Repository: $SCRIPT_REPOSITORY"
+add_metadata "Script Documentation: $SCRIPT_DOCUMENTATION"
 add_metadata "Gene Name: $gene_name"
 add_metadata "VCF File Location: $vcf_file_location"
 add_metadata "Reference: $reference"
@@ -365,6 +380,10 @@ add_metadata "VCF source: $vcf_file_location"
 # Use >&2 to redirect echo to stderr
 echo "---------------------------------------------------------" >&2
 echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
+echo "$SCRIPT_AUTHOR" >&2
+echo "For more information, visit $SCRIPT_REPOSITORY" >&2
+echo "Documentation: $SCRIPT_DOCUMENTATION" >&2
+echo "Help email: $SCRIPT_EMAIL" >&2
 
 # Display version information of the scripts used
 echo "  Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
