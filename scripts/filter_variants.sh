@@ -82,7 +82,8 @@ output_file=""
 # Define cleanup function
 cleanup() {
     echo "Cleaning up temporary files..."
-    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$metadata_file" "$gene_bed_file"
+    rm -f "$temp_output_file" "$phenotype_temp_file" "$filtered_vcf_temp_file" "$filtered_vcf_extracted_fields_temp_file" "$metadata_file" "$gene_bed_file"
+    echo "Cleanup complete." >&2
 }
 
 # Set cleanup trap
@@ -286,6 +287,44 @@ for file in "${files_to_check[@]}"; do
     fi
 done
 
+# Validate GT field format in VCF
+validate_gt_format() {
+    local gt_field="$1"
+    local alt_field="$2"
+
+    # Check if GT field is in the correct format (allowing both phased and unphased genotypes)
+    if ! [[ "$gt_field" =~ ^[0-9][/|][0-9](|:[0-9/|]+)*$ ]]; then
+        echo "Error: Invalid GT field format detected: $gt_field"
+        exit 1
+    fi
+
+    # Handle edge case for GT field with multiple alleles per locus
+    if [[ "$alt_field" =~ "," && "$gt_field" =~ [2-9] ]]; then
+        echo "Warning: Edge case detected - GT field contains alleles greater or 1 and ALT field has multiple alleles: $alt_field"
+        echo "Handling this case gracefully. Recommend manual inspection and splitting multi-allelic sites."
+    fi
+}
+
+# Validate the GT and ALT fields of filtered VCF rows
+validate_filtered_vcf() {
+    local vcf_file="$1"
+    while IFS=$'\n' read -r line; do
+        # Skip header lines
+        if [[ "$line" =~ ^#.*$ ]]; then
+            continue
+        fi
+
+        IFS=$'\t' read -r -a fields <<< "$line"
+
+        alt_field="${fields[4]}"
+        for sample_field in "${fields[@]:9}"; do
+            gt_field="${sample_field%%:*}"
+            validate_gt_format "$gt_field" "$alt_field"
+        done
+    done < "$vcf_file"
+}
+
+
 # Create a temporary file for metadata
 metadata_file=$(mktemp)
 
@@ -362,8 +401,11 @@ else
     fi
 fi
 
-# Create a temporary file for the filtered VCF output before genotype replacement
+# Create a temporary file for the filtered VCF output
 filtered_vcf_temp_file=$(mktemp)
+
+# Create a temporary file for the filtered VCF and extracted output before genotype replacement
+filtered_vcf_extracted_fields_temp_file=$(mktemp)
 
 # Create a temporary file for the BED output
 gene_bed_file=$(mktemp)
@@ -399,7 +441,7 @@ else
 fi
 
 # Construct the command pipeline
-cmd="bcftools view \"$vcf_file_location\" -R $gene_bed_file.sorted | SnpSift -Xmx8g filter \"$filters\" | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_temp_file"
+cmd="bcftools view \"$vcf_file_location\" -R $gene_bed_file.sorted | SnpSift -Xmx8g filter \"$filters\" | tee $filtered_vcf_temp_file | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_extracted_fields_temp_file"
 
 if [ "$use_replacement" == "true" ]; then
     cmd="$cmd | $replace_script_location $replace_script_options -s $sample_file -g $GT_field_number"
@@ -411,10 +453,13 @@ cmd="$cmd $cmd_end"
 # Execute the command pipeline
 eval $cmd
 
+# Validate the GT and ALT fields of filtered VCF rows
+validate_filtered_vcf "$filtered_vcf_temp_file"
+
 # Generate comma-separated sample list using 'replace_gt_with_sample.sh' with the '-m' option
 if [ "$use_phenotype_filtering" == "true" ]; then
     # Create comma-separated sample list
-    comma_separated_samples=$(cat "$filtered_vcf_temp_file" | $replace_script_location -m -s $sample_file -g $GT_field_number)
+    comma_separated_samples=$(cat "$filtered_vcf_extracted_fields_temp_file" | $replace_script_location -m -s $sample_file -g $GT_field_number)
 
     # Create temporary file for phenotype filtering result
     phenotype_temp_file=$(mktemp)
