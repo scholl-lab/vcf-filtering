@@ -5,8 +5,8 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.22.0"
-SCRIPT_DATE="2024-07-14"
+SCRIPT_VERSION="0.23.0"
+SCRIPT_DATE="2024-07-19"
 SCRIPT_AUTHOR="Bernt Popp, Berlin Institute of Health at Charité, Universitätsmedizin Berlin, Center of Functional Genomics, Berlin, Germany"
 SCRIPT_EMAIL="bernt.popp.md@gmail.com"
 SCRIPT_REPOSITORY="https://github.com/scholl-lab/vcf-filtering"
@@ -62,7 +62,7 @@ stats_output_file=""                                        # Default statistics
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
-#    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+#    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes or "all" for all genes.
 #    -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
 #    -v, --vcf_file_location location:   The location of the VCF file.
 #    -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
@@ -111,13 +111,12 @@ print_usage() {
     echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand] [-b gene_burden] [-S stats_output_file]"
     echo "Use -h for more information."
 }
-
 print_help() {
     cat << EOF
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
 
     -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
-    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes.
+    -g, --gene_name gene_name:          The name of the gene of interest. Can be a comma-separated list of genes or "all" for all genes.
     -G, --gene_file gene_file:          The path to the file containing gene names, one on each line.
     -v, --vcf_file_location location:   The location of the VCF file.
     -r, --reference reference:          (Optional, default: "GRCh38.mane.1.0.refseq") The reference to use.
@@ -145,6 +144,7 @@ This script filters VCF files to identify rare genetic variants in genes of inte
 
 Example:
     ./$SCRIPT_NAME -g BICC1 -v my_vcf_file.vcf -o output.tsv
+    ./$SCRIPT_NAME -g all -v my_vcf_file.vcf -o output.tsv
 EOF
 }
 
@@ -458,6 +458,10 @@ bed_file_hash=$(echo -n "$gene_name-$interval_expand" | md5sum | cut -d' ' -f1)
 gene_bed_file="$temp_bed_dir/$bed_file_hash.bed"
 
 # Generate BED file and check for gene presence if not already existing
+if [ "$gene_name" == "all" ]; then
+    gene_name=""
+fi
+
 if [ ! -f "$gene_bed_file" ]; then
     snpEff -Xmx8g genes2bed $reference $gene_name -ud $interval_expand > "$gene_bed_file"
 fi
@@ -469,17 +473,19 @@ found_genes=$(awk -F'\t' '{print $NF}' "$gene_bed_file" | cut -d';' -f1 | sort |
 IFS=' ' read -r -a gene_name_array <<< "$gene_name"
 
 # Check for missing genes
-missing_genes=()
-for gene in "${gene_name_array[@]}"; do
-    if ! grep -q -w "$gene" <<< "$found_genes"; then
-        missing_genes+=("$gene")
-    fi
-done
+if [ "$gene_name" != "" ]; then
+    missing_genes=()
+    for gene in "${gene_name_array[@]}"; do
+        if ! grep -q -w "$gene" <<< "$found_genes"; then
+            missing_genes+=("$gene")
+        fi
+    done
 
-# Log missing genes and exit if any are not found
-if [ ${#missing_genes[@]} -ne 0 ]; then
-    echo "Error: The following gene(s) were not found in the reference: ${missing_genes[*]}" >&2
-    exit 1
+    # Log missing genes and exit if any are not found
+    if [ ${#missing_genes[@]} -ne 0 ]; then
+        echo "Error: The following gene(s) were not found in the reference: ${missing_genes[*]}" >&2
+        exit 1
+    fi
 fi
 
 # Sort the BED file if add_chr is true
