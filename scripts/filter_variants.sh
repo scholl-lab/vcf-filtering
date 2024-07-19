@@ -5,8 +5,8 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.21.0"
-SCRIPT_DATE="2024-07-13"
+SCRIPT_VERSION="0.22.0"
+SCRIPT_DATE="2024-07-14"
 SCRIPT_AUTHOR="Bernt Popp, Berlin Institute of Health at Charité, Universitätsmedizin Berlin, Center of Functional Genomics, Berlin, Germany"
 SCRIPT_EMAIL="bernt.popp.md@gmail.com"
 SCRIPT_REPOSITORY="https://github.com/scholl-lab/vcf-filtering"
@@ -22,6 +22,7 @@ replace_script_location="./replace_gt_with_sample.sh"
 replace_script_options=""
 convert_to_excel_location="./convert_to_excel.R"            # Default excel conversion script location
 convert_to_excel_options=""                                 # Default is empty, meaning no extra options
+analyze_variants_location="./analyze_variants.R"            # Default analyze variants script location
 phenotype_script_location="./filter_phenotypes.sh"          # Default location
 phenotype_script_options=""                                 # Default options
 use_phenotype_filtering=false                               # Default is false
@@ -30,6 +31,8 @@ output_file=""                                              # Default is stdout
 use_temp_bed_files=true                                     # Default is true
 temp_bed_dir="./temp_bed_files"                             # Default temporary directory for BED files
 interval_expand=0                                           # Default expansion interval for gene regions
+perform_gene_burden=false                                   # Default is false
+stats_output_file=""                                        # Default statistics output file
 
 # Documentation
 # -------------
@@ -55,7 +58,7 @@ interval_expand=0                                           # Default expansion 
 #    - SnpSift version 5.1d (build 2022-04-19 15:50)
 #
 # Usage:
-# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files] [-d interval_expand]
+# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files] [-d interval_expand] [-b gene_burden] [-S stats_output_file]
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
@@ -80,6 +83,8 @@ interval_expand=0                                           # Default expansion 
 #    -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
 #    -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
 #    -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
+#    -b, --gene-burden:                  (Optional) Perform gene burden analysis.
+#    -S, --stats-output-file file:       (Optional) The name of the statistics output file.
 #    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
 
@@ -103,7 +108,7 @@ trap cleanup EXIT
 
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand] [-b gene_burden] [-S stats_output_file]"
     echo "Use -h for more information."
 }
 
@@ -124,7 +129,7 @@ This script filters VCF files to identify rare genetic variants in genes of inte
     -R, --use_replacement true/false:   (Optional, default: true) Whether or not to use the replacement script.
     -P, --replace_script_options opts:  (Optional) Additional options for the replace_gt_with_sample.sh script.
     -T, --tsv-to-excel-location loc:    (Optional, default: "./convert_to_excel.R") The path to the convert_to_excel.R script.
-    -X, --tsv-to-excel-options opts:    (Optional) Additional options for the convert_to_excel.R script.
+    -X, --tsv-to-excel-options opts     (Optional) Additional options for the convert_to_excel.R script.
     -b, --phenotype-script-location loc:   (Optional, default: "./filter_phenotypes.sh") The path to the filter_phenotypes.sh script.
     -j, --phenotype-script-options opts:   (Optional) Additional options for the filter_phenotypes.sh script.
     -k, --use-phenotype-filtering true/false: (Optional, default: false) Whether or not to use phenotype filtering.
@@ -133,6 +138,8 @@ This script filters VCF files to identify rare genetic variants in genes of inte
     -U, --use-temp-bed-files true/false: (Optional, default: true) Whether or not to use temporary BED files.
     -T, --temp-bed-dir dir:             (Optional, default: "./temp_bed_files") The directory to store temporary BED files.
     -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
+    -b, --gene-burden:                  (Optional) Perform gene burden analysis.
+    -S, --stats-output-file file:       (Optional) The name of the statistics output file.
     -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
@@ -178,6 +185,8 @@ for arg in "$@"; do
     "--use-temp-bed-files") set -- "$@" "-U" ;;
     "--temp-bed-dir") set -- "$@" "-T" ;;
     "--interval-expand") set -- "$@" "-d" ;;
+    "--gene-burden") set -- "$@" "-b" ;;
+    "--stats-output-file") set -- "$@" "-S" ;;
     *) set -- "$@" "$arg"
   esac
 done
@@ -186,7 +195,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:S:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -212,6 +221,7 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:hV" opt; do
         U) args["use_temp_bed_files"]="$OPTARG" ;;
         T) args["temp_bed_dir"]="$OPTARG" ;;
         d) args["interval_expand"]="$OPTARG" ;;
+        S) args["stats_output_file"]="$OPTARG" ;;
         h) 
             PRINT_HELP=true
             print_help
@@ -326,7 +336,7 @@ validate_gt_format() {
 
     # Handle edge case for GT field with multiple alleles per locus
     if [[ "$alt_field" =~ "," && "$gt_field" =~ [2-9] ]]; then
-        echo "Warning: Edge case detected - GT field contains alleles greater or 1 and ALT field has multiple alleles: $alt_field"
+        echo "Warning: Edge case detected - GT field contains alleles greater or equal to 2 and ALT field has multiple alleles: $alt_field"
         echo "Handling this case gracefully. Recommend manual inspection and splitting multi-allelic sites."
     fi
 }
@@ -480,7 +490,7 @@ else
 fi
 
 # Construct the command pipeline
-cmd="bcftools view \"$vcf_file_location\" -R $gene_bed_file.sorted | SnpSift -Xmx8g filter \"$filters\" | tee $filtered_vcf_temp_file | SnpSift -Xmx4g extractFields -s \",\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_extracted_fields_temp_file"
+cmd="bcftools view \"$vcf_file_location\" -R $gene_bed_file.sorted | SnpSift -Xmx8g filter \"$filters\" | tee $filtered_vcf_temp_file | SnpSift -Xmx4g extractFields -s \"|\" -e \"NA\" - $fields_to_extract | sed -e '1s/ANN\[0\]\.//g; s/GEN\[\*\]\.//g' | tee $filtered_vcf_extracted_fields_temp_file"
 
 if [ "$use_replacement" == "true" ]; then
     cmd="$cmd | $replace_script_location $replace_script_options -s $sample_file -g $GT_field_number"
@@ -510,6 +520,39 @@ if [ "$use_phenotype_filtering" == "true" ]; then
     if [ $? -ne 0 ]; then
         echo "Error in phenotype filtering" >&2
         exit 1
+    fi
+fi
+
+# Perform gene burden analysis if requested
+if [ "$perform_gene_burden" == "true" ]; then
+    # Check if required columns are present
+    required_columns=("proband_count" "proband_variant_count" "proband_allele_count" "control_count" "control_variant_count" "control_allele_count")
+    for col in "${required_columns[@]}"; do
+        if ! grep -q "$col" "$filtered_vcf_extracted_fields_temp_file"; then
+            echo "Error: Column $col is missing from the input file." >&2
+            exit 1
+        fi
+    done
+
+    # Create temporary file for gene burden analysis result
+    burden_temp_file=$(mktemp)
+
+    # Call analyze_variants.R with the input and output files
+    eval "$analyze_variants_location -i $filtered_vcf_extracted_fields_temp_file -o $burden_temp_file"
+
+    # Check for errors in gene burden analysis
+    if [ $? -ne 0 ]; then
+        echo "Error in gene burden analysis" >&2
+        exit 1
+    fi
+
+    # Merge gene burden analysis results into main output file
+    if [ "${args["xlsx"]}" == "true" ]; then
+        # Convert the gene burden analysis results to Excel and append to the main output file
+        cmd_xlsx_burden="$convert_to_excel_location -i $burden_temp_file -o $output_file -s 'Gene_Burden_Analysis' -a"
+        eval $cmd_xlsx_burden
+    else
+        cat $burden_temp_file >> $output_file
     fi
 fi
 
