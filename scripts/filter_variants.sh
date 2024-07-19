@@ -5,7 +5,7 @@
 SCRIPT_NAME=$(basename "$0")
 
 # Version information
-SCRIPT_VERSION="0.23.0"
+SCRIPT_VERSION="0.24.0"
 SCRIPT_DATE="2024-07-19"
 SCRIPT_AUTHOR="Bernt Popp, Berlin Institute of Health at Charité, Universitätsmedizin Berlin, Center of Functional Genomics, Berlin, Germany"
 SCRIPT_EMAIL="bernt.popp.md@gmail.com"
@@ -33,6 +33,7 @@ temp_bed_dir="./temp_bed_files"                             # Default temporary 
 interval_expand=0                                           # Default expansion interval for gene regions
 perform_gene_burden=false                                   # Default is false
 stats_output_file=""                                        # Default statistics output file
+debug_level="INFO"                                          # Default debug level
 
 # Documentation
 # -------------
@@ -58,7 +59,7 @@ stats_output_file=""                                        # Default statistics
 #    - SnpSift version 5.1d (build 2022-04-19 15:50)
 #
 # Usage:
-# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files] [-d interval_expand] [-b gene_burden] [-S stats_output_file]
+# ./$SCRIPT_NAME [-c config_file] [-g gene_name] [-G gene_file] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-R use_replacement] [-o output_file] [-T temp_bed_dir] [-U use_temp_bed_files] [-d interval_expand] [-b gene_burden] [-S stats_output_file] [-D debug_level]
 #
 # Detailed Options:
 #    -c, --config config_file:           (Optional) The path to the configuration file containing default values for parameters.
@@ -85,6 +86,7 @@ stats_output_file=""                                        # Default statistics
 #    -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
 #    -b, --gene-burden:                  (Optional) Perform gene burden analysis.
 #    -S, --stats-output-file file:       (Optional) The name of the statistics output file.
+#    -D, --debug_level level:            (Optional, default: INFO) Set the debugging level (INFO, WARN, ERROR, DEBUG).
 #    -V, --version:                      Displays version information.
 #    -h, --help:                         Displays help information.
 
@@ -106,11 +108,22 @@ cleanup() {
 # Set cleanup trap
 trap cleanup EXIT
 
+# Function to log messages according to the debug level
+log_message() {
+    local level=$1
+    shift
+    local message=$@
+    if [ "$level" == "ERROR" ] || ([ "$level" == "WARN" ] && [ "$debug_level" != "ERROR" ]) || ([ "$level" == "INFO" ] && ([ "$debug_level" == "INFO" ] || [ "$debug_level" == "DEBUG" ])) || [ "$debug_level" == "DEBUG" ]; then
+        echo "[$level] $message" >&2
+    fi
+}
+
 # Usage information
 print_usage() {
-    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand] [-b gene_burden] [-S stats_output_file]"
+    echo "Usage: $0 [-c config_file] [-g gene_name] [-v vcf_file_location] [-r reference] [-a add_chr] [-f filters] [-e fields_to_extract] [-s sample_file] [-l replace_script_location] [-P replace_script_options] [-R use_replacement] [-o output_file] [-x] [-b phenotype_script_location] [-j phenotype_script_options] [-k use_phenotype_filtering] [-U use_temp_bed_files] [-T temp_bed_dir] [-d interval_expand] [-b gene_burden] [-S stats_output_file] [-D debug_level]"
     echo "Use -h for more information."
 }
+
 print_help() {
     cat << EOF
 This script filters VCF files to identify rare genetic variants in genes of interest. The user can specify various parameters, including the gene of interest, the location of the VCF file, the reference to use, and filters to apply. The script then processes the VCF file, applying the specified filters and extracting the relevant fields. The resulting file is saved with the specified name.
@@ -139,6 +152,7 @@ This script filters VCF files to identify rare genetic variants in genes of inte
     -d, --interval-expand num:          (Optional, default: 0) Number of bases to expand the gene interval upstream and downstream.
     -b, --gene-burden:                  (Optional) Perform gene burden analysis.
     -S, --stats-output-file file:       (Optional) The name of the statistics output file.
+    -D, --debug_level level:            (Optional, default: INFO) Set the debugging level (INFO, WARN, ERROR, DEBUG).
     -V, --version:                      Displays version information.
     -h, --help:                         Displays help information.
 
@@ -187,6 +201,7 @@ for arg in "$@"; do
     "--interval-expand") set -- "$@" "-d" ;;
     "--gene-burden") set -- "$@" "-b" ;;
     "--stats-output-file") set -- "$@" "-S" ;;
+    "--debug_level") set -- "$@" "-D" ;;
     *) set -- "$@" "$arg"
   esac
 done
@@ -195,7 +210,7 @@ done
 # Create associative arrays to store command line arguments
 declare -A args
 
-while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:S:hV" opt; do
+while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:S:D:hV" opt; do
     case $opt in
         c) args["config_file"]="$OPTARG" ;;
         g) args["gene_name"]="$OPTARG" ;;
@@ -222,6 +237,7 @@ while getopts ":c:g:G:v:r:a:f:e:s:l:P:R:o:x:T:X:b:j:k:U:d:S:hV" opt; do
         T) args["temp_bed_dir"]="$OPTARG" ;;
         d) args["interval_expand"]="$OPTARG" ;;
         S) args["stats_output_file"]="$OPTARG" ;;
+        D) args["debug_level"]="$OPTARG" ;;
         h) 
             PRINT_HELP=true
             print_help
@@ -261,10 +277,10 @@ done
 
 # After parsing the arguments, check if both -g and -G are provided or neither:
 if [ ! -z "$gene_name" ] && [ ! -z "$gene_file" ]; then
-    echo "Error: You can provide either a gene name using -g or a gene file using -G, but not both." >&2
+    log_message "ERROR" "You can provide either a gene name using -g or a gene file using -G, but not both."
     exit 1
 elif [ -z "$gene_name" ] && [ -z "$gene_file" ]; then
-    echo "Error: You must provide either a gene name using -g or a gene file using -G." >&2
+    log_message "ERROR" "You must provide either a gene name using -g or a gene file using -G."
     exit 1
 fi
 
@@ -287,7 +303,7 @@ fi
 # If a gene file is provided, read its contents into gene_name and replace newlines with spaces
 if [ ! -z "$gene_file" ]; then
     if [ ! -f "$gene_file" ]; then
-        echo "Error: Gene file $gene_file not found." >&2
+        log_message "ERROR" "Gene file $gene_file not found."
         exit 1
     fi
     # Handle both Unix and Windows newlines
@@ -301,7 +317,7 @@ fi
 
 # Validate add_chr parameter
 if [[ "$add_chr" != "true" && "$add_chr" != "false" ]]; then
-    echo "Error: add_chr must be either 'true' or 'false'." >&2
+    log_message "ERROR" "add_chr must be either 'true' or 'false'."
     exit 1
 fi
 
@@ -318,7 +334,7 @@ fi
 
 for file in "${files_to_check[@]}"; do
     if [ ! -f "$file" ]; then
-        echo "Error: File $file not found." >&2
+        log_message "ERROR" "File $file not found."
         exit 1
     fi
 done
@@ -330,14 +346,16 @@ validate_gt_format() {
 
     # Check if GT field is in the correct format (allowing both phased and unphased genotypes)
     if ! [[ "$gt_field" =~ ^[0-9][/|][0-9](|:[0-9/|]+)*$ ]]; then
-        echo "Error: Invalid GT field format detected: $gt_field"
-        exit 1
+        log_message "WARN" "Invalid GT field format detected: $gt_field"
+        if [ "$debug_level" == "ERROR" ]; then
+            exit 1
+        fi
     fi
 
     # Handle edge case for GT field with multiple alleles per locus
     if [[ "$alt_field" =~ "," && "$gt_field" =~ [2-9] ]]; then
-        echo "Warning: Edge case detected - GT field contains alleles greater or equal to 2 and ALT field has multiple alleles: $alt_field"
-        echo "Handling this case gracefully. Recommend manual inspection and splitting multi-allelic sites."
+        log_message "WARN" "Edge case detected - GT field contains alleles greater or equal to 2 and ALT field has multiple alleles: $alt_field"
+        log_message "INFO" "Handling this case gracefully. Recommend manual inspection and splitting multi-allelic sites."
     fi
 }
 
@@ -388,25 +406,25 @@ add_metadata "VCF source: $vcf_file_location"
 
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
-echo "---------------------------------------------------------" >&2
-echo "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE" >&2
-echo "$SCRIPT_AUTHOR" >&2
-echo "For more information, visit $SCRIPT_REPOSITORY" >&2
-echo "Documentation: $SCRIPT_DOCUMENTATION" >&2
-echo "Help email: $SCRIPT_EMAIL" >&2
+log_message "INFO" "---------------------------------------------------------"
+log_message "INFO" "$SCRIPT_NAME version $SCRIPT_VERSION, Date $SCRIPT_DATE"
+log_message "INFO" "$SCRIPT_AUTHOR"
+log_message "INFO" "For more information, visit $SCRIPT_REPOSITORY"
+log_message "INFO" "Documentation: $SCRIPT_DOCUMENTATION"
+log_message "INFO" "Help email: $SCRIPT_EMAIL"
 
 # Display version information of the scripts used
-echo "  Using:" $($replace_script_location --version 2>&1 | head -n 1) >&2
-echo "  Using:" $($convert_to_excel_location --version 2>&1 | head -n 1) >&2
-echo "  Using:" $($phenotype_script_location --version 2>&1 | head -n 1) >&2
+log_message "INFO" "Using: $($replace_script_location --version 2>&1 | head -n 1)"
+log_message "INFO" "Using: $($convert_to_excel_location --version 2>&1 | head -n 1)"
+log_message "INFO" "Using: $($phenotype_script_location --version 2>&1 | head -n 1)"
 
 # Display version information of the tools used
-echo "  With: snpEff version:" $(snpEff -version 2>&1 | head -n 1) >&2
-echo "  With: bcftools version:" $(bcftools --version | head -n 1) >&2
-echo "  With: awk version:" $(awk --version | head -n 1) >&2
-echo "  With: sed version:" $(sed --version | head -n 1) >&2
-echo "  With: tee version:" $(tee --version | head -n 1) >&2
-echo "  With: bash version:" $(bash --version | head -n 1) >&2
+log_message "INFO" "With: snpEff version: $(snpEff -version 2>&1 | head -n 1)"
+log_message "INFO" "With: bcftools version: $(bcftools --version | head -n 1)"
+log_message "INFO" "With: awk version: $(awk --version | head -n 1)"
+log_message "INFO" "With: sed version: $(sed --version | head -n 1)"
+log_message "INFO" "With: tee version: $(tee --version | head -n 1)"
+log_message "INFO" "With: bash version: $(bash --version | head -n 1)"
 
 # Adding version information to metadata
 add_metadata "replace_gt_with_sample.sh: $($replace_script_location --version 2>&1 | head -n 1)"
@@ -419,18 +437,18 @@ add_metadata "sed: $(sed --version | head -n 1)"
 add_metadata "tee: $(tee --version | head -n 1)"
 add_metadata "bash: $(bash --version | head -n 1)"
 
-echo "Initiating the variant filtering process..." >&2
-echo "Starting time: $(date)" >&2
-echo "Target gene(s): $gene_name" >&2
-echo "VCF source: $vcf_file_location" >&2
-echo "---------------------------------------------------------" >&2
+log_message "INFO" "Initiating the variant filtering process..."
+log_message "INFO" "Starting time: $(date)"
+log_message "INFO" "Target gene(s): $gene_name"
+log_message "INFO" "VCF source: $vcf_file_location"
+log_message "INFO" "---------------------------------------------------------"
 
 # Compute the GT_field_number from the position of "GEN[*].GT" in fields_to_extract
 GT_field_number=$(echo "$fields_to_extract" | tr ' ' '\n' | grep -n -E '^GEN\[\*\]\.GT$' | cut -f1 -d:)
 
 # Check if GT_field_number is found
 if [ -z "$GT_field_number" ]; then
-    echo "Error: GT_field_number could not be computed. Please ensure that \"GEN[*].GT\" is present in fields_to_extract." >&2
+    log_message "ERROR" "GT_field_number could not be computed. Please ensure that \"GEN[*].GT\" is present in fields_to_extract."
     exit 1
 fi
 
@@ -483,8 +501,10 @@ if [ "$gene_name" != "" ]; then
 
     # Log missing genes and exit if any are not found
     if [ ${#missing_genes[@]} -ne 0 ]; then
-        echo "Error: The following gene(s) were not found in the reference: ${missing_genes[*]}" >&2
-        exit 1
+        log_message "WARN" "The following gene(s) were not found in the reference: ${missing_genes[*]}"
+        if [ "$debug_level" == "ERROR" ]; then
+            exit 1
+        fi
     fi
 fi
 
@@ -524,7 +544,7 @@ if [ "$use_phenotype_filtering" == "true" ]; then
 
     # Check for errors in phenotype filtering
     if [ $? -ne 0 ]; then
-        echo "Error in phenotype filtering" >&2
+        log_message "ERROR" "Error in phenotype filtering"
         exit 1
     fi
 fi
@@ -535,7 +555,7 @@ if [ "$perform_gene_burden" == "true" ]; then
     required_columns=("proband_count" "proband_variant_count" "proband_allele_count" "control_count" "control_variant_count" "control_allele_count")
     for col in "${required_columns[@]}"; do
         if ! grep -q "$col" "$filtered_vcf_extracted_fields_temp_file"; then
-            echo "Error: Column $col is missing from the input file." >&2
+            log_message "ERROR" "Column $col is missing from the input file."
             exit 1
         fi
     done
@@ -548,7 +568,7 @@ if [ "$perform_gene_burden" == "true" ]; then
 
     # Check for errors in gene burden analysis
     if [ $? -ne 0 ]; then
-        echo "Error in gene burden analysis" >&2
+        log_message "ERROR" "Error in gene burden analysis"
         exit 1
     fi
 
@@ -585,12 +605,12 @@ fi
 
 # Informative echo statements
 # Use >&2 to redirect echo to stderr
-echo "---------------------------------------------------------" >&2
-echo "Variant filtering process completed successfully!" >&2
-echo "Filter command executed:" >&2
-echo "$cmd" >&2
-echo "Completion time: $(date)" >&2
+log_message "INFO" "---------------------------------------------------------"
+log_message "INFO" "Variant filtering process completed successfully!"
+log_message "INFO" "Filter command executed:"
+log_message "INFO" "$cmd"
+log_message "INFO" "Completion time: $(date)"
 if [[ -n "$output_file" && "$output_file" != "stdout" ]]; then
-    echo "Output saved to: $output_file" >&2
+    log_message "INFO" "Output saved to: $output_file"
 fi
-echo "---------------------------------------------------------" >&2
+log_message "INFO" "---------------------------------------------------------"
