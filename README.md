@@ -1,5 +1,10 @@
 # vcf-filtering
 
+**⚠️ DEPRECATED:** This repository is no longer actively maintained.  
+**Please consider using [variantcentrifuge](https://github.com/scholl-lab/variantcentrifuge) instead**, which offers similar functionality with improved maintainability, logging options, and ongoing support.
+
+---
+
 This repository contains scripts and documentation for filtering variant call format (VCF) files to identify rare genetic variants in genes of interest using a streamlined bash script, `filter_variants.sh`.
 
 ## Overview
